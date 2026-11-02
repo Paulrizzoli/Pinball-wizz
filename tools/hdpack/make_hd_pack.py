@@ -234,6 +234,8 @@ def main():
         print("Logo font not found, logo lettering will keep the upscaled original.")
 
     balls = art_fixes.ball_groups(items)
+    plungers = art_fixes.plunger_groups(items)
+    screws = art_fixes.find_screws(items)
     table_hd = None  # (x, y, 4x image) of the table art, for sprites redrawn on top of it
 
     start = time.time()
@@ -256,6 +258,9 @@ def main():
                     arrow = art_fixes.redraw_arrow(rgba, under)
                     if arrow is not None:
                         rgb4 = arrow
+            if gid in plungers:
+                rgb4 = art_fixes.redraw_spring(rgba, rgb4)
+            rgb4 = art_fixes.stamp_screws(rgb4, screws, x, y, rgba)
             img = Image.fromarray(rgb4)
             if s != 4:
                 img = img.resize((w * s, h * s), Image.LANCZOS)

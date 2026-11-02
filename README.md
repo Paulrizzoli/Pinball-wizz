@@ -70,6 +70,10 @@ upscales every sprite 4x with Real-ESRGAN (ONNX, CPU only, BSD-3, see
 * A few sprites are redrawn procedurally instead (`tools/hdpack/art_fixes.py`): the blue arrow
   lights get a clean, pointed two-tone arrow fitted to the original's shape, and the ball is
   rendered as a chrome sphere reflecting the room and the table, with a smooth round edge.
+  The plunger spring is redrawn as a steel coil round the rod, compressed to match each frame, and
+  every screw on the table (and on the lit slingshots) is replaced by the same Phillips pan-head
+  screw. Screw spots are listed in `TABLE_SCREWS` and checked against the player's art before
+  anything is drawn.
 
 ```
 pip install -r tools/hdpack/requirements.txt
