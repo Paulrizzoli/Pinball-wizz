@@ -54,9 +54,12 @@ jobs:
       - name: Build HD pack tool
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r tools/hdpack/requirements.txt pyinstaller
-          pyinstaller --onefile --console --name MakeHDPack `
+          # Clean venv so PyTorch (used only for the model conversion) can't end up in the exe.
+          python -m venv hdpack-venv
+          ./hdpack-venv/Scripts/python -m pip install --upgrade pip
+          ./hdpack-venv/Scripts/python -m pip install -r tools/hdpack/requirements.txt pyinstaller
+          ./hdpack-venv/Scripts/pyinstaller --onefile --console --name MakeHDPack `
+            --exclude-module torch --exclude-module torchvision --exclude-module spandrel `
             --add-data "tools/hdpack/realesrgan_x4_anime6b.onnx;." `
             --add-data "tools/hdpack/realesrgan_x4plus.onnx;." `
             tools/hdpack/make_hd_pack.py
@@ -71,6 +74,7 @@ jobs:
           Copy-Item Doc/HOW-TO-PLAY-IN-HD.txt $pkg
           Copy-Item LICENSE, LICENSE.SpaceCadetPinball $pkg
           Copy-Item tools/hdpack/MODEL_LICENSE.txt $pkg
+          Get-ChildItem $pkg | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
