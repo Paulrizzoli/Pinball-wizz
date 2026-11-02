@@ -8,6 +8,7 @@
 #include "options.h"
 #include "pb.h"
 #include "render.h"
+#include "modernfx.h"
 #include "Sound.h"
 #include "translations.h"
 #include "font_selection.h"
@@ -591,6 +592,10 @@ void winmain::RenderUi()
 				ImGui::EndMenu();
 			}
 
+			if (ImGui::MenuItem("Settings..."))
+			{
+				modernfx::SettingsOpen = true;
+			}
 			if (ImGui::BeginMenu("Graphics"))
 			{
 				if (ImGui::MenuItem(pb::get_rc_string(Msg::Menu1_WindowUniformScale), nullptr, Options.UniformScaling))
@@ -818,6 +823,8 @@ void winmain::RenderUi()
 		ImGui::EndMainMenuBar();
 	}
 
+	modernfx::RenderTitleButton();
+	modernfx::RenderSettingsWindow();
 	a_dialog();
 	high_score::RenderHighScoreDialog();
 	font_selection::RenderDialog();
@@ -1327,6 +1334,16 @@ void winmain::UpdateFrameRate()
 {
 	// UPS >= FPS
 	auto fps = Options.FramesPerSecond.V, ups = Options.UpdatesPerSecond.V;
+	if (Options.SmoothPlay)
+	{
+		// Draw at the monitor's refresh rate and run physics at 240 updates/s (or more if set higher).
+		SDL_DisplayMode mode{};
+		auto display = MainWindow ? SDL_GetWindowDisplayIndex(MainWindow) : 0;
+		if (SDL_GetCurrentDisplayMode(display < 0 ? 0 : display, &mode) == 0 && mode.refresh_rate > 0)
+			fps = Clamp(mode.refresh_rate, options::MinFps, options::MaxFps);
+		ups = Clamp(std::max({ups, 240, fps}), options::MinUps, options::MaxUps);
+		fps = std::min(fps, ups);
+	}
 	UpdateToFrameRatio = static_cast<double>(ups) / fps;
 	TargetFrameTime = DurationMs(1000.0 / ups);
 }

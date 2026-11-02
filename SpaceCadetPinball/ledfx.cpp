@@ -8,6 +8,7 @@
 #include "render.h"
 #include "TPinballTable.h"
 #include "winmain.h"
+#include "modernfx.h"
 
 #include <functional>
 
@@ -17,6 +18,7 @@ std::unordered_map<const gdrv_bitmap8*, ledfx::RefBitmap> ledfx::Refs;
 std::unordered_map<const gdrv_bitmap8*, gdrv_bitmap8*> ledfx::OffCache;
 uint64_t ledfx::LastTicks = 0;
 std::vector<ledfx::Display> ledfx::Displays;
+std::vector<render_sprite*> ledfx::Bumpers;
 SDL_Texture* ledfx::GlintTexture = nullptr;
 
 namespace
@@ -427,6 +429,11 @@ gdrv_bitmap8* ledfx::OffBitmap(const render_sprite& sprite)
 	return off;
 }
 
+void ledfx::MarkBumper(render_sprite* sprite)
+{
+	Bumpers.push_back(sprite);
+}
+
 void ledfx::SetUnlit(gdrv_bitmap8* bmp, RefBitmap unlit)
 {
 	Refs[bmp] = unlit;
@@ -434,6 +441,7 @@ void ledfx::SetUnlit(gdrv_bitmap8* bmp, RefBitmap unlit)
 
 void ledfx::Unregister(render_sprite* sprite)
 {
+	Bumpers.erase(std::remove(Bumpers.begin(), Bumpers.end(), sprite), Bumpers.end());
 	Lights.erase(std::remove(Lights.begin(), Lights.end(), sprite), Lights.end());
 }
 
@@ -529,6 +537,17 @@ ledfx::BmpInfo& ledfx::Info(gdrv_bitmap8* bmp, int xPos, int yPos)
 	return info;
 }
 
+bool ledfx::LampColor(gdrv_bitmap8* bmp, int xPos, int yPos, uint8_t color[3])
+{
+	if (!bmp)
+		return false;
+	auto& info = Info(bmp, xPos, yPos);
+	if (!info.Glow)
+		return false;
+	std::copy(info.Color, info.Color + 3, color);
+	return true;
+}
+
 float ledfx::Emission(gdrv_bitmap8* bmp, int xPos, int yPos)
 {
 	return bmp ? Info(bmp, xPos, yPos).Emission : 0.0f;
@@ -542,6 +561,15 @@ gdrv_bitmap8* ledfx::LedBitmap(gdrv_bitmap8* bmp, int xPos, int yPos)
 
 void ledfx::SpriteChanged(render_sprite& sprite, gdrv_bitmap8* bmp, zmap_header_type* zMap, int xPos, int yPos)
 {
+	if (bmp && options::Options.BumperSparks &&
+		std::find(Bumpers.begin(), Bumpers.end(), &sprite) != Bumpers.end() &&
+		Emission(bmp, xPos, yPos) > Emission(sprite.Bmp, sprite.BmpRect.XPosition, sprite.BmpRect.YPosition) + 5.0f)
+	{
+		uint8_t color[3];
+		if (LampColor(bmp, xPos, yPos, color))
+			modernfx::BumperHit(xPos + bmp->Width / 2.0f, yPos + bmp->Height / 2.0f, bmp->Width / 2.0f, color);
+	}
+
 	if (!Enabled())
 	{
 		sprite.PrevBmp = nullptr;
@@ -872,18 +900,36 @@ void ledfx::RebuildDisplay(Display& display)
 	SDL_UpdateTexture(display.Glow, nullptr, glowPixels.data(), glowW * 4);
 }
 
+std::vector<SDL_Rect> ledfx::DisplayRects()
+{
+	std::vector<SDL_Rect> rects;
+	for (auto& display : Displays)
+		rects.push_back(SDL_Rect{display.X, display.Y, display.Width, display.Height});
+	return rects;
+}
+
 void ledfx::DrawDisplays()
+{
+	if (!render::vscreen)
+		return;
+	float originX, originY, scaleX, scaleY;
+	render::GetScreenTransform(originX, originY, scaleX, scaleY);
+	DrawDisplays(originX, originY, scaleX, scaleY, SDL_Rect{0, 0, render::vscreen->Width, render::vscreen->Height});
+}
+
+void ledfx::DrawDisplays(float originX, float originY, float scaleX, float scaleY, const SDL_Rect& region)
 {
 	auto screen = render::vscreen;
 	if (!options::Options.DotMatrix || Displays.empty() || !screen)
 		return;
 
-	float originX, originY, scaleX, scaleY;
-	render::GetScreenTransform(originX, originY, scaleX, scaleY);
 	for (auto& display : Displays)
 	{
 		if (display.X < 0 || display.Y < 0 || display.X + display.Width > screen->Width ||
 			display.Y + display.Height > screen->Height)
+			continue;
+		if (display.X < region.x || display.Y < region.y || display.X + display.Width > region.x + region.w ||
+			display.Y + display.Height > region.y + region.h)
 			continue;
 
 		// Rebuild only when the box contents change (score updates, new message).
@@ -948,6 +994,7 @@ void ledfx::Uninit()
 	OffCache.clear();
 	Refs.clear();
 	Lights.clear();
+	Bumpers.clear();
 	for (auto& display : Displays)
 	{
 		if (display.Dots)

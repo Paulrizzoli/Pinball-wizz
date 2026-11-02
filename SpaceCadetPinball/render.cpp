@@ -12,6 +12,7 @@
 #include "proj.h"
 #include "hdgfx.h"
 #include "ledfx.h"
+#include "modernfx.h"
 
 std::vector<render_sprite*> render::sprite_list, render::ball_list;
 zmap_header_type* render::background_zmap;
@@ -147,6 +148,7 @@ void render::uninit()
 	for (auto& ballBmp : ball_bitmap)
 		delete ballBmp;
 	ledfx::Uninit();
+	modernfx::Uninit();
 	hdgfx::Unload();
 	DebugOverlay::UnInit();
 }
@@ -595,7 +597,35 @@ void render::PresentVScreen()
 	auto hdScale = hdgfx::Active() ? hdgfx::Scale : 1;
 	screen->BlitToTexture();
 
-	if (offset_x == 0 && offset_y == 0)
+	// Nudge shake moves the whole picture for this frame only.
+	int shakeX, shakeY;
+	modernfx::BeginFrame(shakeX, shakeY);
+
+	// Widescreen layout: the table fills the window height, with the backglass and score panel beside it.
+	// DestinationRect is temporarily set to where the full vScreen would sit, so every effect lines up.
+	SDL_Rect wideRect, leftPanel, rightPanel;
+	auto wide = modernfx::WideLayout(wideRect, leftPanel, rightPanel);
+	modernfx::DrawAmbient(screen->Texture, wide);
+	auto savedRect = DestinationRect;
+	if (wide)
+		DestinationRect = wideRect;
+	DestinationRect.x += shakeX;
+	DestinationRect.y += shakeY;
+
+	if (wide)
+	{
+#if SDL_VERSION_ATLEAST(2, 0, 10)
+		auto scale = static_cast<float>(DestinationRect.h) / vscreen->Height;
+		auto tableWidth = pb::MainTable ? pb::MainTable->Width : vscreen->Width;
+		SDL_Rect srcBoardRect{0, 0, tableWidth * hdScale, vscreen->Height * hdScale};
+		SDL_FRect dstBoardRect{
+			DestinationRect.x + offset_x * scale, DestinationRect.y + offset_y * scale, tableWidth * scale,
+			static_cast<float>(DestinationRect.h)
+		};
+		SDL_RenderCopyF(winmain::Renderer, screen->Texture, &srcBoardRect, &dstBoardRect);
+#endif
+	}
+	else if (offset_x == 0 && offset_y == 0)
 	{
 		SDL_RenderCopy(winmain::Renderer, screen->Texture, nullptr, &DestinationRect);
 	}
@@ -659,7 +689,13 @@ void render::PresentVScreen()
 	}
 
 	ledfx::DrawGlow();
-	ledfx::DrawDisplays();
+	modernfx::DrawEffects();
+	if (!wide)
+		ledfx::DrawDisplays();
+	DestinationRect = savedRect;
+	if (wide)
+		modernfx::DrawPanels(screen->Texture, hdScale, wideRect, leftPanel, rightPanel);
+	modernfx::DrawCrt();
 
 	if (options::Options.DebugOverlay)
 	{
