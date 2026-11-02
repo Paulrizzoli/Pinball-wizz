@@ -1,6 +1,8 @@
 #pragma once
 #include "gdrv.h"
 
+struct rectangle_type;
+
 struct zmap_header_type
 {
 	zmap_header_type(int width, int height, int stride);
@@ -27,6 +29,9 @@ public:
 	                        zmap_header_type* dstZMap, int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp,
 	                        int srcBmpXOff, int srcBmpYOff, zmap_header_type* srcZMap, int srcZMapXOff,
 	                        int srcZMapYOff, uint8_t alpha);
+	// Darkens a soft ellipse (centre cx/cy, radii rx/ry) inside clip, on surfaces behind the given depth.
+	static void paint_shadow(gdrv_bitmap8* dstBmp, zmap_header_type* zMap, const rectangle_type& clip, float cx,
+	                         float cy, float rx, float ry, uint16_t depth, float strength);
 	static void paint_flat(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOff, int dstBmpYOff,
 	                       zmap_header_type* zMap, int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp,
 	                       int srcBmpXOff, int srcBmpYOff, uint16_t depth);

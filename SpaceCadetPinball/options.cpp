@@ -157,6 +157,9 @@ optionsStruct options::Options
 	{"Light Glow", true},
 	{"Light Glow Strength", 1.0f},
 	{"Dot-Matrix Display", true},
+	{"Ball Shadow", true},
+	{"Ball Light Reflections", true},
+	{"Light Spill", true},
 };
 
 void options::InitPrimary()
@@ -326,6 +329,15 @@ void options::toggle(Menu1 uIDCheckItem)
 		break;
 	case Menu1::DotMatrix:
 		Options.DotMatrix ^= true;
+		break;
+	case Menu1::BallShadow:
+		Options.BallShadow ^= true;
+		break;
+	case Menu1::BallGlints:
+		Options.BallGlints ^= true;
+		break;
+	case Menu1::LightSpill:
+		Options.LightSpill ^= true;
 		break;
 	default:
 		break;

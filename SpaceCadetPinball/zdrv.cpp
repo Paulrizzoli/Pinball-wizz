@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "zdrv.h"
+#include "maths.h"
 #include "winmain.h"
 #include "hdgfx.h"
 
@@ -134,6 +135,37 @@ void zdrv::paint_alpha(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXO
 				};
 				dstPtrZ[x] = srcPtrZ[x];
 			}
+		}
+	}
+}
+
+void zdrv::paint_shadow(gdrv_bitmap8* dstBmp, zmap_header_type* zMap, const rectangle_type& clip, float cx,
+                        float cy, float rx, float ry, uint16_t depth, float strength)
+{
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		rectangle_type hdClip{clip.XPosition * s, clip.YPosition * s, clip.Width * s, clip.Height * s};
+		paint_shadow(hdgfx::Twin(dstBmp), hdgfx::Twin(zMap), hdClip, cx * s, cy * s, rx * s, ry * s, depth,
+		             strength);
+	}
+
+	for (int y = clip.YPosition; y < clip.YPosition + clip.Height; y++)
+	{
+		for (int x = clip.XPosition; x < clip.XPosition + clip.Width; x++)
+		{
+			auto dx = (x + 0.5f - cx) / rx, dy = (y + 0.5f - cy) / ry;
+			auto d = std::sqrt(dx * dx + dy * dy);
+			if (d >= 1.0f || zMap->ZPtr1[zMap->Stride * y + x] <= depth)
+				continue;
+			auto v = 1.0f - d;
+			v = v * v * (3 - 2 * v);
+			auto keep = static_cast<unsigned>((1.0f - strength * v) * 256.0f);
+			auto& pixel = dstBmp->BmpBufPtr1[dstBmp->Stride * y + x];
+			pixel = ColorRgba{
+				static_cast<uint8_t>(pixel.GetRed() * keep >> 8), static_cast<uint8_t>(pixel.GetGreen() * keep >> 8),
+				static_cast<uint8_t>(pixel.GetBlue() * keep >> 8), 255
+			};
 		}
 	}
 }

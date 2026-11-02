@@ -66,6 +66,8 @@ public:
 	static void SpriteViewer(bool* show);
 	static void PresentVScreen();
 	static gdrv_bitmap8* GetTableBitmap();
+	static const std::vector<render_sprite*>& GetBalls() { return ball_list; }
+	static uint16_t DepthAt(int x, int y);
 	static void GetScreenTransform(float& x, float& y, float& scaleX, float& scaleY);
 	static void GetBoardTransform(float& x, float& y, float& scaleX, float& scaleY, SDL_Rect& clip);
 private:

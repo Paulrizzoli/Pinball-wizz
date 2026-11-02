@@ -337,6 +337,13 @@ gdrv_bitmap8* render::GetTableBitmap()
 	return nullptr;
 }
 
+uint16_t render::DepthAt(int x, int y)
+{
+	if (!zscreen || x < 0 || y < 0 || x >= zscreen->Width || y >= zscreen->Height)
+		return 0xFFFF;
+	return zscreen->ZPtr1[zscreen->Stride * y + x];
+}
+
 void render::GetScreenTransform(float& x, float& y, float& scaleX, float& scaleY)
 {
 	scaleX = static_cast<float>(DestinationRect.w) / vscreen->Width;
@@ -373,23 +380,47 @@ void render::paint_balls()
 	{
 		auto ball = ball_list[index];
 		auto dirty = &ball->DirtyRect;
-		if (ball->Bmp && maths::rectangle_clip(ball->BmpRect, vscreen_rect, &ball->DirtyRect))
+		rectangle_type ballClip{};
+		if (ball->Bmp && maths::rectangle_clip(ball->BmpRect, vscreen_rect, &ballClip))
 		{
+			// Soft shadow on the surface under the ball, offset down and right (light from the top left).
+			// The saved area grows to cover it, so unpaint_balls restores it too.
+			auto& rect = ball->BmpRect;
+			auto shadowX = rect.XPosition + rect.Width * 0.82f, shadowY = rect.YPosition + rect.Height * 0.95f;
+			auto shadowRX = rect.Width * 0.66f, shadowRY = rect.Height * 0.56f;
+			rectangle_type shadowRect{
+				static_cast<int>(shadowX - shadowRX) - 1, static_cast<int>(shadowY - shadowRY) - 1,
+				static_cast<int>(shadowRX * 2) + 3, static_cast<int>(shadowRY * 2) + 3
+			};
+			rectangle_type saveRect = rect;
+			auto shadow = options::Options.BallShadow.V;
+			if (shadow)
+			{
+				maths::enclosing_box(rect, shadowRect, saveRect);
+				shadow = saveRect.Width <= ball_bitmap[index]->Width && saveRect.Height <= ball_bitmap[index]->Height;
+				if (!shadow)
+					saveRect = rect;
+			}
+			maths::rectangle_clip(saveRect, vscreen_rect, dirty);
+
 			int xPos = dirty->XPosition;
 			int yPos = dirty->YPosition;
 			gdrv::copy_bitmap(ball_bitmap[index], dirty->Width, dirty->Height, 0, 0, vscreen, xPos, yPos);
+			if (shadow)
+				zdrv::paint_shadow(vscreen, zscreen, *dirty, shadowX, shadowY, shadowRX, shadowRY, ball->Depth,
+				                   0.55f);
 			zdrv::paint_flat(
-				dirty->Width,
-				dirty->Height,
+				ballClip.Width,
+				ballClip.Height,
 				vscreen,
-				xPos,
-				yPos,
+				ballClip.XPosition,
+				ballClip.YPosition,
 				zscreen,
-				xPos,
-				yPos,
+				ballClip.XPosition,
+				ballClip.YPosition,
 				ball->Bmp,
-				xPos - ball->BmpRect.XPosition,
-				yPos - ball->BmpRect.YPosition,
+				ballClip.XPosition - ball->BmpRect.XPosition,
+				ballClip.YPosition - ball->BmpRect.YPosition,
 				ball->Depth);
 		}
 		else
