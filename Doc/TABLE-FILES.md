@@ -3,6 +3,23 @@
 A table is a `.pwtable` file in the `Tables` folder next to the game. It is plain JSON (or a zip holding
 `table.json` and its images). Pick it from **Table > Choose Table...**.
 
+## Editing in the game
+
+**Table > New Table** makes `My Table.pwtable` from a simple starter layout and opens the editor.
+**Table > Edit This Table** opens the table being played. In the editor:
+
+- Click a part to select it, drag it to move it. Walls, slingshots and lane switches show white points that
+  can be dragged to reshape them; walls can gain or lose points.
+- The left column adds parts (they appear in the middle of the view), copies or deletes the selected part.
+- The right column changes the selected part, or the table's name and colours when nothing is selected.
+- Right-drag pans, the mouse wheel zooms, **Fit** shows the whole table. **Snap to grid** keeps positions on
+  0.1 steps.
+- **Undo**/**Redo** (Ctrl+Z, Ctrl+Y), **Save** (Ctrl+S), **Save and Play** saves and starts the table.
+- Renaming or deleting a part keeps the rules pointing at the right parts. Rules themselves are edited in
+  the file for now.
+
+Packed (zip) tables can't be edited in the game yet.
+
 Coordinates are in table units: the playfield centre is 0,0, x grows to the right and y grows towards the
 player. The default playfield is 16 wide and 29 long.
 

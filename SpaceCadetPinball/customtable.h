@@ -10,6 +10,8 @@
 #include <map>
 #include <cstdint>
 
+namespace minijson { class Value; }
+
 class DatFile;
 class TPinballComponent;
 
@@ -23,6 +25,7 @@ struct TablePreviewShape
 	float Width = 0; // line width in table units
 	uint32_t Color = 0; // 0xAABBGGRR, like ImGui's IM_COL32
 	bool Filled = false;
+	int PartIndex = -1; // index in the table's "parts" list
 };
 
 struct TablePreview
@@ -83,6 +86,10 @@ public:
 
 	// Lists the .pwtable files in the Tables folders of the given base folders.
 	static std::vector<CustomTableEntry> FindTables(const std::vector<std::string>& baseFolders);
+	// Flat sketch of a table description, for the picker and the editor.
+	static void BuildPreview(const minijson::Value& doc, TablePreview& out);
+	// Reads a table file's description (plain or zipped). packed is true for a zipped table.
+	static bool ReadDocument(const std::string& path, minijson::Value& doc, bool& packed, std::string& error);
 	// Reads just the name and author of a table file.
 	static bool ReadInfo(const std::string& path, CustomTableEntry& entry);
 

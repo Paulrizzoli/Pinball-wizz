@@ -364,6 +364,31 @@ namespace minijson
 		members.emplace_back(key, v);
 	}
 
+	Value& Value::At(const std::string& key)
+	{
+		if (type != Type::Object)
+			*this = MakeObject();
+		for (auto& member : members)
+		{
+			if (member.first == key)
+				return member.second;
+		}
+		members.emplace_back(key, Value());
+		return members.back().second;
+	}
+
+	void Value::Remove(const std::string& key)
+	{
+		for (auto it = members.begin(); it != members.end(); ++it)
+		{
+			if (it->first == key)
+			{
+				members.erase(it);
+				return;
+			}
+		}
+	}
+
 	std::string Value::Dump(int indent) const
 	{
 		std::string out;

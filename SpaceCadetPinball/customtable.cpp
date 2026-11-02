@@ -1857,8 +1857,10 @@ namespace
 		return ch(c.R) | ch(c.G) << 8 | ch(c.B) << 16 | 0xFFu << 24;
 	}
 
-	void BuildPreview(const Value& doc, TablePreview& out)
-	{
+}
+
+void customtable::BuildPreview(const Value& doc, TablePreview& out)
+{
 		// Same default colours as the table builder.
 		auto& theme = doc["theme"];
 		auto color = [](const Value& v, ArtColor def) { return ArtColor::FromHex(v.Str(), def); };
@@ -1884,10 +1886,13 @@ namespace
 			}
 			return pts;
 		};
+		int partIndex = -1;
 		for (auto& part : doc["parts"].Items())
 		{
+			partIndex++;
 			auto type = part["type"].Str();
 			TablePreviewShape shape;
+			shape.PartIndex = partIndex;
 			if (type == "wall")
 			{
 				shape.Kind = TablePreviewShape::Polygon;
@@ -1930,12 +1935,45 @@ namespace
 				shape.Width = part["width"].Float(0.7f) * 0.6f;
 				shape.Color = PackColor(color(part["color"], accent));
 			}
+			else if (type == "lane")
+			{
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = points(part["points"]);
+				shape.Width = 0.08f;
+				shape.Color = PackColor({0.75f, 0.78f, 0.85f});
+			}
+			else if (type == "target")
+			{
+				auto x = part["x"].Float(), y = part["y"].Float(), w = part["width"].Float(0.8f) / 2;
+				auto a = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+				float fx = std::cos(a), fy = std::sin(a), ax = -fy, ay = fx, d = 0.08f;
+				shape.Kind = TablePreviewShape::Polygon;
+				shape.Points = {x - ax * w - fx * d, y - ay * w - fy * d, x + ax * w - fx * d, y + ay * w - fy * d,
+				                x + ax * w + fx * d, y + ay * w + fy * d, x - ax * w + fx * d, y - ay * w + fy * d};
+				shape.Filled = true;
+				shape.Color = PackColor(color(part["color"], accent));
+			}
+			else if (type == "light")
+			{
+				shape.Kind = TablePreviewShape::Circle;
+				shape.Points = {part["x"].Float(), part["y"].Float()};
+				shape.Radius = part["radius"].Float(0.35f);
+				shape.Filled = true;
+				shape.Color = PackColor(color(part["color"], accent).Mix(playfield, 0.4f));
+			}
+			else if (type == "drain")
+			{
+				auto y = part["y"].Float(out.Length / 2 - 0.3f);
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = {part["x0"].Float(-out.Width / 2), y, part["x1"].Float(out.Width / 2), y};
+				shape.Width = 0.06f;
+				shape.Color = PackColor({0.9f, 0.25f, 0.25f});
+			}
 			else
 				continue;
 			if (!shape.Points.empty())
 				out.Shapes.push_back(shape);
 		}
-	}
 }
 
 DatFile* customtable::Load(const std::string& path, std::string& error)
@@ -2023,6 +2061,16 @@ int customtable::ScoreFor(const TPinballComponent* component)
 		return 0;
 	auto it = Scores.find(component->GroupIndex);
 	return it == Scores.end() ? 0 : it->second;
+}
+
+bool customtable::ReadDocument(const std::string& path, Value& doc, bool& packed, std::string& error)
+{
+	std::map<std::string, std::string> files;
+	if (!ReadTableDocument(path, doc, files, error))
+		return false;
+	std::string data;
+	packed = ReadFileBytes(path, data) && data.size() >= 2 && data[0] == 'P' && data[1] == 'K';
+	return true;
 }
 
 bool customtable::ReadInfo(const std::string& path, CustomTableEntry& entry)
