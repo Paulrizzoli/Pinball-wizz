@@ -69,7 +69,10 @@ private:
 	{
 		gdrv_bitmap8* Led = nullptr;
 		SDL_Texture* Glow = nullptr;
+		SDL_Texture* Spill = nullptr;
 		float Emission = 0;
+		float CenterX = 0, CenterY = 0; // light-weighted centre, bitmap-local 1x pixels
+		uint8_t Color[3]{};             // average lamp colour
 		bool Ready = false;
 	};
 
@@ -91,6 +94,8 @@ private:
 
 	static BmpInfo& Info(gdrv_bitmap8* bmp, int xPos, int yPos);
 	static float Emission(gdrv_bitmap8* bmp, int xPos, int yPos);
+	static SDL_Texture* GlintTexture;
 	static void DrawGlowLayer(gdrv_bitmap8* bmp, int xPos, int yPos, float weight, float originX, float originY,
-	                          float scaleX, float scaleY);
+	                          float scaleX, float scaleY, bool spill);
+	static void DrawGlints(float originX, float originY, float scaleX, float scaleY);
 };

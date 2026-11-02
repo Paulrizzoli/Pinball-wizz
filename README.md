@@ -49,6 +49,9 @@ Options > Graphics has these switches (all on by default, with or without an HD 
   more saturated colours, and unlit lamp inserts are dimmed so lit ones stand out. Round lamps are
   shaded like an LED under a glass dome: a bright core when lit, a dark lens with a reflection when off.
 - **Light Glow** and **Glow Strength**: a soft bloom around lit lamps and flashing bumpers.
+- **Light Spill**: lit lamps cast a soft pool of their colour onto the table and walls around them.
+- **Ball Shadow** and **Ball Light Reflections**: the ball casts a soft shadow, and the chrome picks up
+  coloured glints from nearby lit lamps.
 - **Dot-Matrix Display**: the score and message boxes are drawn as a grid of little round LEDs.
 
 All of it is computed at runtime from the player's own table art (`SpaceCadetPinball/ledfx.cpp`);

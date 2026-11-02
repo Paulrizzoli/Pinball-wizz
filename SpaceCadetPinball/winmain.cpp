@@ -614,6 +614,18 @@ void winmain::RenderUi()
 				{
 					options::toggle(Menu1::LightGlow);
 				}
+				if (ImGui::MenuItem("Light Spill", nullptr, Options.LightSpill))
+				{
+					options::toggle(Menu1::LightSpill);
+				}
+				if (ImGui::MenuItem("Ball Shadow", nullptr, Options.BallShadow))
+				{
+					options::toggle(Menu1::BallShadow);
+				}
+				if (ImGui::MenuItem("Ball Light Reflections", nullptr, Options.BallGlints))
+				{
+					options::toggle(Menu1::BallGlints);
+				}
 				if (ImGui::MenuItem("Dot-Matrix Display", nullptr, Options.DotMatrix))
 				{
 					options::toggle(Menu1::DotMatrix);
