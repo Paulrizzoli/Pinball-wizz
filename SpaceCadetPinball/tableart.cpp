@@ -24,6 +24,35 @@ ArtVec ArtNormalize(const ArtVec& a)
 	return a * (1.0f / len);
 }
 
+void Art2D::Picture(const unsigned char* rgb, int width, int height)
+{
+	if (!rgb || width <= 0 || height <= 0)
+		return;
+	auto w = Width * Scale, h = Height * Scale;
+	for (int y = 0; y < h; y++)
+	{
+		auto fy = std::max(0.0f, (y + 0.5f) * height / h - 0.5f);
+		auto y0 = std::min(height - 1, static_cast<int>(fy)), y1 = std::min(height - 1, y0 + 1);
+		auto ty = fy - y0;
+		for (int x = 0; x < w; x++)
+		{
+			auto fx = std::max(0.0f, (x + 0.5f) * width / w - 0.5f);
+			auto x0 = std::min(width - 1, static_cast<int>(fx)), x1 = std::min(width - 1, x0 + 1);
+			auto tx = fx - x0;
+			auto p = &RGBA[(static_cast<size_t>(y) * w + x) * 4];
+			for (int c = 0; c < 3; c++)
+			{
+				auto a = rgb[(static_cast<size_t>(y0) * width + x0) * 3 + c] * (1 - tx) +
+					rgb[(static_cast<size_t>(y0) * width + x1) * 3 + c] * tx;
+				auto b = rgb[(static_cast<size_t>(y1) * width + x0) * 3 + c] * (1 - tx) +
+					rgb[(static_cast<size_t>(y1) * width + x1) * 3 + c] * tx;
+				p[c] = (a * (1 - ty) + b * ty) / 255.0f;
+			}
+			p[3] = 1.0f;
+		}
+	}
+}
+
 namespace
 {
 	float Clamp01(float v)

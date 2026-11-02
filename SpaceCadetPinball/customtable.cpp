@@ -1160,23 +1160,36 @@ namespace
 		std::vector<ArtVec> corners{{x - r * 1.6f, y - r * 1.6f, 0}, {x + r * 1.6f, y + r * 1.6f, 0},
 		                            {x - r * 1.6f, y + r * 1.6f, 0}, {x + r * 1.6f, y - r * 1.6f, 0}};
 		auto canvas = NewCanvas(ScreenBounds(corners));
-		ArtMaterial lit;
-		lit.Color = color.Mix({1, 1, 1}, 0.35f);
-		lit.Glow = 1.1f;
-		lit.Specular = 0.6f;
+		// A lit LED insert keeps its colour: full brightness, a hot white-ish core in the middle and a
+		// small shine. (Overdriving the colour would wash every lamp out to white.)
+		auto peak = std::max(0.05f, std::max(color.R, std::max(color.G, color.B)));
+		ArtColor bright{color.R / peak, color.G / peak, color.B / peak};
+		auto lamp = [bright, x, y, r, arrow](const ArtVec& pos, const ArtVec& n) -> ArtColor
+		{
+			auto dx = pos.X - x, dy = pos.Y - y;
+			auto d = std::min(1.0f, std::sqrt(dx * dx + dy * dy) / (arrow ? r * 1.3f : r));
+			auto core = (1.0f - d) * (1.0f - d) * (arrow ? 0.35f : 0.6f);
+			auto c = bright.Scaled(0.82f + 0.18f * (1.0f - d)).Mix({1, 1, 1}, core);
+			ArtMaterial shine;
+			shine.Color = {0, 0, 0};
+			shine.Specular = 0.35f;
+			shine.Shininess = 30;
+			auto spec = ArtShade(shine, pos, n);
+			return {std::min(1.0f, c.R + spec.R), std::min(1.0f, c.G + spec.G), std::min(1.0f, c.B + spec.B)};
+		};
 		if (arrow)
 		{
 			P2 tip{x + dir.X * r * 1.3f, y + dir.Y * r * 1.3f};
 			for (int side = -1; side <= 1; side += 2)
 			{
 				P2 b{x - dir.X * r * 0.6f - dir.Y * r * side, y - dir.Y * r * 0.6f + dir.X * r * side};
-				canvas.Prism(To3D(ThickLine({tip, b}, r * 0.27f)), 0, 0.012f, ArtSolid(lit), ArtSolid(lit));
-				canvas.Cylinder(b.X, b.Y, r * 0.27f, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 16);
+				canvas.Prism(To3D(ThickLine({tip, b}, r * 0.27f)), 0, 0.012f, lamp, lamp);
+				canvas.Cylinder(b.X, b.Y, r * 0.27f, 0, 0.012f, lamp, lamp, 16);
 			}
-			canvas.Cylinder(tip.X, tip.Y, r * 0.27f, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 16);
+			canvas.Cylinder(tip.X, tip.Y, r * 0.27f, 0, 0.012f, lamp, lamp, 16);
 		}
 		else
-			canvas.Cylinder(x, y, r, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 32);
+			canvas.Cylinder(x, y, r, 0, 0.012f, lamp, lamp, 32);
 		gdrv_bitmap8* bmp;
 		zmap_header_type* zMap;
 		ResolveSprite(canvas, bmp, zMap);
@@ -1230,11 +1243,9 @@ namespace
 					return false;
 				group.Lights.push_back(index);
 			}
+			// A group still being set up in the editor does nothing yet.
 			if (group.Parts.empty())
-			{
-				error = "group " + group.Name + " has no parts";
-				return false;
-			}
+				continue;
 			group.Hits = g["hits"].Int(0);
 			group.Score = g["score"].Int(5000);
 			group.Bonus = g["bonus"].Int(0);
@@ -1247,6 +1258,7 @@ namespace
 			}
 			rules.Groups.push_back(group);
 		}
+		rules.BallSave = std::max(0.0f, std::min(60.0f, doc["ballSave"].Float(0)));
 		if (!lookup(doc["extraBallLight"], rules.ExtraBallLight, "extraBallLight"))
 			return false;
 		for (auto& id : doc["multiplierLights"].Items())
@@ -1267,7 +1279,12 @@ namespace
 		PlayfieldTex.Height = th;
 		PlayfieldTex.RGB.assign(static_cast<size_t>(tw) * th * 3, 0);
 
-		// A picture from the table file covers the whole playfield.
+		Art2D tex(tw, th, 1);
+		auto u = [&](float x) { return (x + W / 2) * TexPerUnit; };
+		auto v = [&](float y) { return (y + L / 2) * TexPerUnit; };
+
+		// A picture from the table file covers the whole playfield; the light inserts are painted on top.
+		bool picture = false;
 		auto imageName = Doc["playfield"]["image"].Str();
 		auto it = Files.find(imageName);
 		if (!imageName.empty() && it != Files.end())
@@ -1277,51 +1294,44 @@ namespace
 			                                    static_cast<int>(it->second.size()), &iw, &ih, &channels, 3);
 			if (pixels)
 			{
-				for (int y = 0; y < th; y++)
-					for (int x = 0; x < tw; x++)
-					{
-						auto sx = std::min(iw - 1, x * iw / tw), sy = std::min(ih - 1, y * ih / th);
-						for (int c = 0; c < 3; c++)
-							PlayfieldTex.RGB[(static_cast<size_t>(y) * tw + x) * 3 + c] =
-								pixels[(static_cast<size_t>(sy) * iw + sx) * 3 + c];
-					}
+				tex.Picture(pixels, iw, ih);
 				stbi_image_free(pixels);
-				return;
+				picture = true;
 			}
 		}
 
-		Art2D tex(tw, th, 1);
-		auto u = [&](float x) { return (x + W / 2) * TexPerUnit; };
-		auto v = [&](float y) { return (y + L / 2) * TexPerUnit; };
-		tex.VerticalGradient(0, 0, static_cast<float>(tw), static_cast<float>(th), Playfield, Playfield2);
-
-		// Faint grid.
-		for (float gx = -W / 2 + 1; gx < W / 2; gx += 1)
-			tex.Line(u(gx), 0, u(gx), static_cast<float>(th), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
-		for (float gy = -L / 2 + 1; gy < L / 2; gy += 1)
-			tex.Line(0, v(gy), static_cast<float>(tw), v(gy), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
-
-		// Halos under bumpers, and rings around the bumper group.
-		float cx = 0, cy = 0;
-		int bumpers = 0;
-		for (auto& part : Doc["parts"].Items())
+		if (!picture)
 		{
-			if (part["type"].Str() != "bumper")
-				continue;
-			auto bx = part["x"].Float(), by = part["y"].Float(), br = part["radius"].Float(0.55f);
-			tex.Glow(u(bx), v(by), br * 2.4f * TexPerUnit, Color(part["capColor"], Accent2), 0.35f);
-			cx += bx;
-			cy += by;
-			bumpers++;
-		}
-		if (bumpers > 1)
-		{
-			cx /= bumpers;
-			cy /= bumpers;
-			tex.StrokeRect(u(cx) - 3.2f * TexPerUnit, v(cy) - 3.2f * TexPerUnit, 6.4f * TexPerUnit,
-			               6.4f * TexPerUnit, TexPerUnit * 0.08f, Accent2, 3.2f * TexPerUnit, 0.45f);
-			tex.StrokeRect(u(cx) - 3.6f * TexPerUnit, v(cy) - 3.6f * TexPerUnit, 7.2f * TexPerUnit,
-			               7.2f * TexPerUnit, TexPerUnit * 0.03f, Accent2, 3.6f * TexPerUnit, 0.35f);
+			tex.VerticalGradient(0, 0, static_cast<float>(tw), static_cast<float>(th), Playfield, Playfield2);
+
+			// Faint grid.
+			for (float gx = -W / 2 + 1; gx < W / 2; gx += 1)
+				tex.Line(u(gx), 0, u(gx), static_cast<float>(th), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
+			for (float gy = -L / 2 + 1; gy < L / 2; gy += 1)
+				tex.Line(0, v(gy), static_cast<float>(tw), v(gy), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
+
+			// Halos under bumpers, and rings around the bumper group.
+			float cx = 0, cy = 0;
+			int bumpers = 0;
+			for (auto& part : Doc["parts"].Items())
+			{
+				if (part["type"].Str() != "bumper")
+					continue;
+				auto bx = part["x"].Float(), by = part["y"].Float(), br = part["radius"].Float(0.55f);
+				tex.Glow(u(bx), v(by), br * 2.4f * TexPerUnit, Color(part["capColor"], Accent2), 0.35f);
+				cx += bx;
+				cy += by;
+				bumpers++;
+			}
+			if (bumpers > 1)
+			{
+				cx /= bumpers;
+				cy /= bumpers;
+				tex.StrokeRect(u(cx) - 3.2f * TexPerUnit, v(cy) - 3.2f * TexPerUnit, 6.4f * TexPerUnit,
+				               6.4f * TexPerUnit, TexPerUnit * 0.08f, Accent2, 3.2f * TexPerUnit, 0.45f);
+				tex.StrokeRect(u(cx) - 3.6f * TexPerUnit, v(cy) - 3.6f * TexPerUnit, 7.2f * TexPerUnit,
+				               7.2f * TexPerUnit, TexPerUnit * 0.03f, Accent2, 3.6f * TexPerUnit, 0.35f);
+			}
 		}
 
 		// Light inserts, unlit, with their labels.
@@ -1331,7 +1341,7 @@ namespace
 				continue;
 			auto lx = part["x"].Float(), ly = part["y"].Float(), lr = part["radius"].Float(0.35f);
 			auto lc = Color(part["color"], Accent);
-			auto unlit = lc.Mix(Playfield2, 0.65f);
+			auto unlit = lc.Scaled(0.5f).Mix(Playfield2, 0.4f);
 			if (part["shape"].Str() == "arrow")
 			{
 				auto a = (part["angle"].Float(-90.0f)) * 3.14159265f / 180.0f;
@@ -1356,8 +1366,8 @@ namespace
 			}
 		}
 
-		// The table's name, painted across the lower playfield.
-		auto name = Doc["name"].Str("My Table");
+		// The table's name, painted across the lower playfield (own pictures carry their own).
+		auto name = picture ? std::string() : Doc["name"].Str("My Table");
 		auto size = TexPerUnit * 0.9f;
 		auto maxWidth = W * 0.7f * TexPerUnit;
 		auto textWidth = Art2D::TextWidth(name, size);
@@ -1367,8 +1377,9 @@ namespace
 		tex.Text(name, u(Doc["playfield"]["nameX"].Float(0)), nameY, size, size * 0.14f, Accent, 1, 0.85f);
 
 		// Darker area around the drain.
-		tex.VerticalGradient(0, v(L / 2 - 2.5f), static_cast<float>(tw), 2.5f * TexPerUnit, Playfield2,
-		                     Playfield2.Scaled(0.5f));
+		if (!picture)
+			tex.VerticalGradient(0, v(L / 2 - 2.5f), static_cast<float>(tw), 2.5f * TexPerUnit, Playfield2,
+			                     Playfield2.Scaled(0.5f));
 
 		auto img = tex.Resolve(1);
 		for (size_t i = 0; i < img.Pixels.size(); i++)
@@ -1983,6 +1994,18 @@ DatFile* customtable::Load(const std::string& path, std::string& error)
 	std::map<std::string, std::string> files;
 	if (!ReadTableDocument(path, doc, files, error))
 		return nullptr;
+
+	// A plain table file can name a picture that sits next to it in the same folder.
+	auto picture = doc["playfield"]["image"].Str();
+	if (!picture.empty() && !files.count(picture) && picture.find_first_of("/\\") == std::string::npos &&
+		picture.find("..") == std::string::npos)
+	{
+		auto cut = path.find_last_of("/\\");
+		auto folder = cut == std::string::npos ? std::string() : path.substr(0, cut + 1);
+		std::string bytes;
+		if (ReadFileBytes(folder + picture, bytes))
+			files[picture] = bytes;
+	}
 
 	BuildScale = ChooseScale();
 	auto start = std::chrono::steady_clock::now();

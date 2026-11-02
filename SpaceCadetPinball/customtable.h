@@ -61,6 +61,7 @@ struct CustomRules
 	std::vector<CustomRuleGroup> Groups;
 	int ExtraBallLight = -1;
 	std::vector<int> MultiplierLights;
+	float BallSave = 0; // seconds after a ball starts playing in which a drained ball is given back
 };
 
 class customtable
