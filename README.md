@@ -46,7 +46,8 @@ HD versions of each sprite, and the Nx screen is what gets presented.
 Options > Graphics has these switches (all on by default, with or without an HD pack):
 
 - **LED Lighting**: table lights fade smoothly on and off instead of snapping, lit lamps get brighter,
-  more saturated colours, and unlit lamp inserts are dimmed so lit ones stand out.
+  more saturated colours, and unlit lamp inserts are dimmed so lit ones stand out. Round lamps are
+  shaded like an LED under a glass dome: a bright core when lit, a dark lens with a reflection when off.
 - **Light Glow** and **Glow Strength**: a soft bloom around lit lamps and flashing bumpers.
 - **Dot-Matrix Display**: the score and message boxes are drawn as a grid of little round LEDs.
 
