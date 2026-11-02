@@ -32,5 +32,6 @@ private:
 	static std::vector<high_score_entry> ScoreQueue;
 
 	static void clear_table();
+	static std::string Key(int position, const char* field);
 	static void place_new_score_into(high_score_entry data);
 };

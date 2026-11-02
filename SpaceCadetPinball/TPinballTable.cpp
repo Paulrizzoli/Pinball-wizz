@@ -38,6 +38,7 @@
 #include "TFlipper.h"
 #include "TDrain.h"
 #include "translations.h"
+#include "customtable.h"
 
 int TPinballTable::score_multipliers[5] = {1, 2, 3, 5, 10};
 
@@ -74,7 +75,7 @@ TPinballTable::TPinballTable(): TPinballComponent(nullptr, -1, false)
 	}
 
 	CurrentPlayer = 0;
-	MaxBallCount = 3;
+	MaxBallCount = customtable::Active ? customtable::BallsPerGame : 3;
 	ScoreBallcount = score::create("ballcount1", render::background_bitmap);
 	ScorePlayerNumber1 = score::create("player_number1", render::background_bitmap);
 	int groupIndexObjects = loader::query_handle("table_objects");
@@ -462,7 +463,8 @@ int TPinballTable::Message(MessageCode code, float value)
 			MultiballFlag = true;
 			JackpotScore = 500000;
 		}
-		midi::play_track(MidiTracks::Track1, true);
+		if (!customtable::Active)
+			midi::play_track(MidiTracks::Track1, true);
 		break;
 	case MessageCode::PlungerRelaunchBall:
 		if (ReplayTimer)
@@ -475,7 +477,7 @@ int TPinballTable::Message(MessageCode code, float value)
 			if (PlayerCount <= 1)
 			{
 				const char* textboxText;
-				if (Demo->ActiveFlag)
+				if (Demo && Demo->ActiveFlag)
 					textboxText = pb::get_rc_string(Msg::STRING131);
 				else
 					textboxText = pb::get_rc_string(Msg::STRING127);
@@ -519,25 +521,25 @@ int TPinballTable::Message(MessageCode code, float value)
 			switch (nextPlayer)
 			{
 			case 0:
-				if (Demo->ActiveFlag)
+				if (Demo && Demo->ActiveFlag)
 					textboxText = pb::get_rc_string(Msg::STRING131);
 				else
 					textboxText = pb::get_rc_string(Msg::STRING127);
 				break;
 			case 1:
-				if (Demo->ActiveFlag)
+				if (Demo && Demo->ActiveFlag)
 					textboxText = pb::get_rc_string(Msg::STRING132);
 				else
 					textboxText = pb::get_rc_string(Msg::STRING128);
 				break;
 			case 2:
-				if (Demo->ActiveFlag)
+				if (Demo && Demo->ActiveFlag)
 					textboxText = pb::get_rc_string(Msg::STRING133);
 				else
 					textboxText = pb::get_rc_string(Msg::STRING129);
 				break;
 			case 3:
-				if (Demo->ActiveFlag)
+				if (Demo && Demo->ActiveFlag)
 					textboxText = pb::get_rc_string(Msg::STRING134);
 				else
 					textboxText = pb::get_rc_string(Msg::STRING130);

@@ -167,6 +167,7 @@ optionsStruct options::Options
 	{"CRT Filter", false},
 	{"Smooth Play", true},
 	{"HD Detail", 0},
+	{"Table File", ""},
 };
 
 void options::InitPrimary()

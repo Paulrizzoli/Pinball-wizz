@@ -10,6 +10,7 @@
 #include "render.h"
 #include "modernfx.h"
 #include "hdgfx.h"
+#include "customtable.h"
 #include "updates.h"
 #include "Sound.h"
 #include "translations.h"
@@ -217,6 +218,15 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 		};
 		searchPaths.insert(searchPaths.end(), std::begin(PlatformDataPaths), std::end(PlatformDataPaths));
 		pb::SelectDatFile(searchPaths);
+
+		// Custom tables live in a Tables folder next to the game (or in the settings folder).
+		customtable::SearchFolders.clear();
+		for (auto path : searchPaths)
+			if (path)
+				customtable::SearchFolders.emplace_back(path);
+		Options.TableFile.V = customtable::ResolveStartTable(Options.TableFile.V, !pb::DatFileName.empty());
+		if (!Options.TableFile.V.empty())
+			pb::FullTiltMode = pb::FullTiltDemoMode = false;
 
 		// Second step: run updates that depend on .DAT file selection
 		options::InitSecondary();
@@ -511,6 +521,37 @@ void winmain::RenderUi()
 				pb::toggle_demo();
 			}
 			ImGuiMenuItemWShortcut(GameBindings::Exit);
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Table"))
+		{
+			static std::vector<CustomTableEntry> tables;
+			if (ImGui::IsWindowAppearing())
+				tables = customtable::FindTables(customtable::SearchFolders);
+
+			if (ImGui::MenuItem("Space Cadet", nullptr, !customtable::Active, !pb::DatFileName.empty()) &&
+				customtable::Active)
+			{
+				Options.TableFile.V.clear();
+				Restart();
+			}
+			if (!tables.empty())
+				ImGui::Separator();
+			for (auto& table : tables)
+			{
+				auto current = customtable::Active && table.Path == customtable::Path;
+				auto label = table.Author.empty() ? table.Name : table.Name + "  (by " + table.Author + ")";
+				ImGui::PushID(table.Path.c_str());
+				if (ImGui::MenuItem(label.c_str(), nullptr, current) && !current)
+				{
+					Options.TableFile.V = table.Path;
+					Restart();
+				}
+				ImGui::PopID();
+			}
+			if (tables.empty())
+				ImGui::TextDisabled("No other tables found in the Tables folder");
 			ImGui::EndMenu();
 		}
 
@@ -984,6 +1025,8 @@ int winmain::event_handler(const SDL_Event* event)
 					*pltPtr++ = ColorRgba{blue, redGreen, redGreen, 0};
 				}
 				gdrv::display_palette(plt);
+				if (customtable::Active)
+					customtable::ApplyColors();
 				delete[] plt;
 			}
 			break;

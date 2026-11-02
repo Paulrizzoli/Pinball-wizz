@@ -188,6 +188,14 @@ set(SOURCE_FILES
         SpaceCadetPinball/DebugOverlay.h
         SpaceCadetPinball/hdgfx.cpp
         SpaceCadetPinball/hdgfx.h
+        SpaceCadetPinball/minijson.cpp
+        SpaceCadetPinball/minijson.h
+        SpaceCadetPinball/tableart.cpp
+        SpaceCadetPinball/tableart.h
+        SpaceCadetPinball/customtable.cpp
+        SpaceCadetPinball/customtable.h
+        SpaceCadetPinball/customrules.cpp
+        SpaceCadetPinball/customrules.h
         SpaceCadetPinball/ledfx.cpp
         SpaceCadetPinball/ledfx.h
         SpaceCadetPinball/modernfx.cpp

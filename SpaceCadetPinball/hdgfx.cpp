@@ -199,6 +199,30 @@ void hdgfx::SetTwin(gdrv_bitmap8* bmp, gdrv_bitmap8* twin)
 	BmpTwins[bmp] = twin;
 }
 
+void hdgfx::SetTwin(zmap_header_type* zMap, zmap_header_type* twin)
+{
+	auto it = ZMapTwins.find(zMap);
+	if (it != ZMapTwins.end())
+		delete it->second;
+	ZMapTwins[zMap] = twin;
+}
+
+bool hdgfx::BeginCustom(int scale)
+{
+	PackScale = 0;
+	Unload();
+	if (scale < 2)
+	{
+		StatusText = "Custom table drawn at original detail";
+		return false;
+	}
+	PackScale = scale;
+	Scale = scale;
+	StatusText = "Custom table drawn at " + std::to_string(Scale) + "x";
+	printf("%s\n", StatusText.c_str());
+	return true;
+}
+
 void hdgfx::Forget(const gdrv_bitmap8* bmp)
 {
 	if (Clearing)
