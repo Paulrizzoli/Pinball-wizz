@@ -220,6 +220,14 @@ def run(args):
     say("Checking for a newer build...")
     try:
         latest = parse_kv(fetch(DOWNLOAD_URL + VERSION_FILE).decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            say(f"GitHub answered with an error ({e.code}). Try again in a few minutes.")
+            return 1
+        say("GitHub says there is no download right now. Either a new version is being published")
+        say("(try again in a few minutes), or the Pinball Wizz repository has been made private:")
+        say("the updater can only download while the repository is public.")
+        return 1
     except (urllib.error.URLError, OSError) as e:
         say(f"Couldn't reach GitHub ({e}). Check your internet connection and try again.")
         say("(Right after a change is published, the download can be missing for a few minutes.)")
