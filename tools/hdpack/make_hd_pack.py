@@ -47,6 +47,16 @@ def resource_path(name):
     return os.path.join(base, name)
 
 
+def art_version():
+    """Which version of the HD art this tool makes. The release build stamps it (the last commit that
+    changed tools/hdpack), so the updater knows when an HD pack needs rebuilding."""
+    try:
+        with open(resource_path("art_version.txt")) as f:
+            return f.read().strip() or "dev"
+    except OSError:
+        return "dev"
+
+
 # --- PINBALL.DAT reader -------------------------------------------------------------------------
 
 def read_dat(path):
@@ -272,7 +282,7 @@ def main():
 
     with open(os.path.join(out, "pack.ini"), "w") as f:
         f.write(f"; Pinball Wizz HD pack, generated from {os.path.basename(dat)}\n")
-        f.write(f"version={PACK_VERSION}\nscale={args.scale}\n")
+        f.write(f"version={PACK_VERSION}\nscale={args.scale}\nart={art_version()}\n")
     print(f"\nDone: {len(items)} images at {args.scale}x in {time.time() - start:.0f}s -> {out}")
     print("Start the game and it will use the HD graphics.")
     return finish(args, 0)

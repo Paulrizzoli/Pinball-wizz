@@ -10,6 +10,7 @@
 #include "render.h"
 #include "modernfx.h"
 #include "hdgfx.h"
+#include "updates.h"
 #include "Sound.h"
 #include "translations.h"
 #include "font_selection.h"
@@ -762,6 +763,10 @@ void winmain::RenderUi()
 
 		if (ImGui::BeginMenu(pb::get_rc_string(Msg::Menu1_Help)))
 		{
+			if (updates::Available() && ImGui::MenuItem("Check for Updates..."))
+			{
+				CheckForUpdates();
+			}
 #ifndef NDEBUG
 			if (ImGui::MenuItem("ImGui Demo", nullptr, ShowImGuiDemo))
 			{
@@ -1335,6 +1340,36 @@ void winmain::pause(bool toggle)
 	{
 		pb::pause_continue();
 		no_time_loss = true;
+	}
+}
+
+void winmain::CheckForUpdates()
+{
+	const SDL_MessageBoxButtonData buttons[] =
+	{
+		{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Update"},
+		{SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"},
+	};
+	const SDL_MessageBoxData box
+	{
+		SDL_MESSAGEBOX_INFORMATION, MainWindow, "Check for updates",
+		"Pinball Wizz will close, get the newest version if there is one, rebuild the HD art if it "
+		"changed, and start again.\n\nYour game files and settings are kept.",
+		SDL_arraysize(buttons), buttons, nullptr
+	};
+	int choice = 0;
+	if (SDL_ShowMessageBox(&box, &choice) != 0 || choice != 1)
+		return;
+
+	if (updates::LaunchUpdater())
+	{
+		SDL_Event event{SDL_QUIT};
+		SDL_PushEvent(&event);
+	}
+	else
+	{
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Check for updates",
+		                         "Couldn't start \"Update Pinball Wizz.exe\".", MainWindow);
 	}
 }
 
