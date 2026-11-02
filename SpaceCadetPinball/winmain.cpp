@@ -605,6 +605,23 @@ void winmain::RenderUi()
 				{
 					options::toggle(Menu1::WindowIntegerScale);
 				}
+				ImGui::Separator();
+				if (ImGui::MenuItem("LED Lighting", nullptr, Options.LedLighting))
+				{
+					options::toggle(Menu1::LedLighting);
+				}
+				if (ImGui::MenuItem("Light Glow", nullptr, Options.LightGlow))
+				{
+					options::toggle(Menu1::LightGlow);
+				}
+				if (ImGui::MenuItem("Dot-Matrix Display", nullptr, Options.DotMatrix))
+				{
+					options::toggle(Menu1::DotMatrix);
+				}
+				ImGui::TextUnformatted("Glow Strength");
+				ImGui::SliderFloat("##Glow Strength", &Options.LightGlowStrength.V, 0.0f, 2.0f, "%.2f",
+				                   ImGuiSliderFlags_AlwaysClamp);
+				ImGui::Separator();
 				if (ImGui::DragFloat("UI Scale", &Options.UIScale.V, 0.005f, 0.8f, 5,
 				                     "%.2f", ImGuiSliderFlags_AlwaysClamp))
 				{

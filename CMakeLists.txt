@@ -188,6 +188,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/DebugOverlay.h
         SpaceCadetPinball/hdgfx.cpp
         SpaceCadetPinball/hdgfx.h
+        SpaceCadetPinball/ledfx.cpp
+        SpaceCadetPinball/ledfx.h
         SpaceCadetPinball/stb_image.h
         )
 

@@ -7,6 +7,7 @@
 #include "render.h"
 #include "timer.h"
 #include "TPinballTable.h"
+#include "ledfx.h"
 
 TBumper::TBumper(TPinballTable* table, int groupIndex) : TCollisionComponent(table, groupIndex, true)
 {
@@ -19,6 +20,17 @@ TBumper::TBumper(TPinballTable* table, int groupIndex) : TCollisionComponent(tab
 	SoundIndex4 = visual.SoundIndex4;
 	SoundIndex3 = visual.SoundIndex3;
 	OriginalThreshold = Threshold;
+	if (RenderSprite && ListBitmap)
+	{
+		// Bumper bitmaps come in unlit/lit pairs; only the difference within a pair is lamp light.
+		ledfx::Register(RenderSprite, false);
+		for (auto index = 0u; index < ListBitmap->size(); index++)
+		{
+			auto unlit = ListBitmap->at(index & ~1u).Bmp;
+			ledfx::SetUnlit(ListBitmap->at(index).Bmp,
+			                {unlit, unlit->XPosition - table->XOffset, unlit->YPosition - table->YOffset});
+		}
+	}
 }
 
 int TBumper::Message(MessageCode code, float value)

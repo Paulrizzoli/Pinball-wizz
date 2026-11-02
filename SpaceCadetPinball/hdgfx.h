@@ -38,6 +38,9 @@ public:
 	static gdrv_bitmap8* Twin(gdrv_bitmap8* bmp);
 	static zmap_header_type* Twin(zmap_header_type* zMap);
 
+	// Registers a ready-made HD twin for a 1x bitmap (used for bitmaps made at runtime, like LED-tinted lights).
+	static void SetTwin(gdrv_bitmap8* bmp, gdrv_bitmap8* twin);
+
 	// Called from destructors so a reused address never picks up a stale twin.
 	static void Forget(const gdrv_bitmap8* bmp);
 	static void Forget(const zmap_header_type* zMap);

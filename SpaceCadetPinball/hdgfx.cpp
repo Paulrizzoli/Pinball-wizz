@@ -174,6 +174,14 @@ zmap_header_type* hdgfx::Twin(zmap_header_type* zMap)
 	return twin;
 }
 
+void hdgfx::SetTwin(gdrv_bitmap8* bmp, gdrv_bitmap8* twin)
+{
+	auto it = BmpTwins.find(bmp);
+	if (it != BmpTwins.end())
+		delete it->second;
+	BmpTwins[bmp] = twin;
+}
+
 void hdgfx::Forget(const gdrv_bitmap8* bmp)
 {
 	if (Clearing)

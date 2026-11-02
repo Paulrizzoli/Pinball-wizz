@@ -30,6 +30,9 @@ enum class Menu1:int
 	WindowUniformScale = 600,
 	WindowLinearFilter = 601,
 	WindowIntegerScale = 602,
+	LedLighting = 603,
+	LightGlow = 604,
+	DotMatrix = 605,
 	Prefer3DPBGameData = 700,
 };
 
@@ -289,4 +292,8 @@ struct optionsStruct
 	StringOption FontFileName;
 	StringOption Language;
 	BoolOption HideCursor;
+	BoolOption LedLighting;
+	BoolOption LightGlow;
+	FloatOption LightGlowStrength;
+	BoolOption DotMatrix;
 };

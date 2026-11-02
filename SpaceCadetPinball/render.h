@@ -26,6 +26,18 @@ struct render_sprite
 	rectangle_type BoundingRect{};
 	bool DirtyFlag{};
 
+	// LED lighting (see ledfx): lights cross-fade from the previous bitmap to the current one.
+	bool IsLight{};
+	float Fade = 1.0f; // 0 = showing PrevBmp, 1 = showing Bmp
+	float FadeTime = 0.0f;
+	gdrv_bitmap8* PrevBmp{};
+	zmap_header_type* PrevZMap{};
+	int PrevX{}, PrevY{};
+	// Lamp footprint used to draw a dimmed "off" lamp when the light shows nothing.
+	gdrv_bitmap8* OffSrcBmp{};
+	zmap_header_type* OffZMap{};
+	int OffX{}, OffY{};
+
 	render_sprite(VisualTypes visualType, gdrv_bitmap8* bmp, zmap_header_type* zMap,
 	              int xPosition, int yPosition, rectangle_type* boundingRect);
 	~render_sprite();
@@ -53,6 +65,9 @@ public:
 	static void build_occlude_list();
 	static void SpriteViewer(bool* show);
 	static void PresentVScreen();
+	static gdrv_bitmap8* GetTableBitmap();
+	static void GetScreenTransform(float& x, float& y, float& scaleX, float& scaleY);
+	static void GetBoardTransform(float& x, float& y, float& scaleX, float& scaleY, SDL_Rect& clip);
 private:
 	static std::vector<render_sprite*> sprite_list, ball_list;
 	static int offset_x, offset_y;
@@ -61,6 +76,8 @@ private:
 	static zmap_header_type* zscreen;
 
 	static void repaint(const render_sprite& sprite);
+	static void paint_layer(const render_sprite& refSprite, gdrv_bitmap8* bmp, zmap_header_type* zMap, int xPos,
+	                        int yPos, const rectangle_type& dirtyRect, float opacity);
 	static void paint_balls();
 	static void unpaint_balls();
 };
