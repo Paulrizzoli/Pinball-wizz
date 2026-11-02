@@ -59,8 +59,8 @@ game logic is unchanged.
 
 ## Settings window and modern effects
 
-A **Settings** button sits at the bottom of the table on the start screen and during the demo, and
-**Options > Settings...** opens the same window at any time. It holds every switch below plus the
+In the widescreen layout a big **Settings** button sits in the left panel, under the backglass. In a
+narrow window it sits at the bottom of the table on the start screen and during the demo instead. **Options > Settings...** opens the same window at any time. It holds every switch below plus the
 lighting ones above (`SpaceCadetPinball/modernfx.cpp`):
 
 - **Ball trail**: a short fading streak behind the moving ball.

@@ -188,6 +188,27 @@ void modernfx::PanelRegions(SDL_Rect& logo, SDL_Rect& scores)
 	}
 	logo = SDL_Rect{tableWidth, 0, sidebarWidth, split};
 	scores = SDL_Rect{tableWidth, split, sidebarWidth, screen->Height - split};
+
+	// Shrink each region to its framed art, dropping the plain dark background around it.
+	for (auto rect : {&logo, &scores})
+	{
+		int x0 = rect->x + rect->w, y0 = rect->y + rect->h, x1 = rect->x - 1, y1 = rect->y - 1;
+		for (int y = rect->y; y < rect->y + rect->h && y < screen->Height; y++)
+		{
+			for (int x = rect->x; x < rect->x + rect->w && x < screen->Width; x++)
+			{
+				auto pixel = screen->BmpBufPtr1[y * screen->Stride + x];
+				if (pixel.GetRed() + pixel.GetGreen() + pixel.GetBlue() < 150)
+					continue;
+				x0 = std::min(x0, x);
+				x1 = std::max(x1, x);
+				y0 = std::min(y0, y);
+				y1 = std::max(y1, y);
+			}
+		}
+		if (x1 - x0 > rect->w / 3 && y1 - y0 > rect->h / 3)
+			*rect = SDL_Rect{x0, y0, x1 - x0 + 1, y1 - y0 + 1};
+	}
 }
 
 void modernfx::FitRect(const SDL_Rect& src, const SDL_Rect& area, float maxScale, SDL_Rect& dst)
@@ -198,6 +219,32 @@ void modernfx::FitRect(const SDL_Rect& src, const SDL_Rect& area, float maxScale
 	dst.h = static_cast<int>(src.h * scale);
 	dst.x = area.x + (area.w - dst.w) / 2;
 	dst.y = area.y + (area.h - dst.h) / 2;
+}
+
+void modernfx::PanelRects(const SDL_Rect& screenRect, const SDL_Rect& left, const SDL_Rect& right, SDL_Rect dst[2])
+{
+	SDL_Rect logo, scores;
+	PanelRegions(logo, scores);
+	auto tableScale = static_cast<float>(screenRect.h) / render::vscreen->Height;
+	const SDL_Rect* areas[2] = {&left, &right};
+	const SDL_Rect* regions[2] = {&logo, &scores};
+	for (int i = 0; i < 2; i++)
+	{
+		SDL_Rect area = *areas[i];
+		auto margin = std::max(8, area.w / 50);
+		area.x += margin;
+		area.w -= margin * 2;
+		area.y += margin;
+		area.h -= margin * 2;
+		dst[i] = SDL_Rect{0, 0, 0, 0};
+		if (area.w <= 0 || area.h <= 0)
+			continue;
+		// The backglass leaves room below it for the Settings button.
+		if (i == 0)
+			area.h = area.h * 62 / 100;
+		FitRect(*regions[i], area, tableScale * 4.0f, dst[i]);
+		dst[i].y = area.y + std::min(areas[i]->h * 12 / 100, area.h - dst[i].h);
+	}
 }
 
 void modernfx::DrawAmbient(SDL_Texture* screenTexture, bool wide)
@@ -232,35 +279,16 @@ void modernfx::DrawPanels(SDL_Texture* screenTexture, int hdScale, const SDL_Rec
 	if (!screenTexture || !render::vscreen)
 		return;
 
-	// Backglass on the left, enlarged score panel on the right, each in a dark frame.
-	SDL_Rect logo, scores;
+	// Backglass on the left, enlarged score panel on the right, both large and near the top.
+	SDL_Rect logo, scores, dsts[2];
 	PanelRegions(logo, scores);
-	auto tableScale = static_cast<float>(screenRect.h) / render::vscreen->Height;
-	const SDL_Rect* areas[2] = {&left, &right};
+	PanelRects(screenRect, left, right, dsts);
 	const SDL_Rect* regions[2] = {&logo, &scores};
 	for (int i = 0; i < 2; i++)
 	{
-		SDL_Rect area = *areas[i];
-		auto margin = std::max(12, area.w / 12);
-		area.x += margin;
-		area.w -= margin * 2;
-		area.y += margin;
-		area.h -= margin * 2;
-		if (area.w <= 0 || area.h <= 0)
+		auto& dst = dsts[i];
+		if (dst.w <= 0 || dst.h <= 0)
 			continue;
-		SDL_Rect dst;
-		FitRect(*regions[i], area, tableScale * 2.0f, dst);
-		if (i == 0)
-			dst.y = area.y + std::min(area.h / 10, area.h - dst.h);
-
-		SDL_Rect frame{dst.x - 8, dst.y - 8, dst.w + 16, dst.h + 16};
-		SDL_SetRenderDrawBlendMode(winmain::Renderer, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(winmain::Renderer, 0, 0, 0, 210);
-		SDL_RenderFillRect(winmain::Renderer, &frame);
-		SDL_SetRenderDrawColor(winmain::Renderer, 130, 115, 190, 255);
-		SDL_RenderDrawRect(winmain::Renderer, &frame);
-		SDL_SetRenderDrawColor(winmain::Renderer, 0, 0, 0, 255);
-		SDL_SetRenderDrawBlendMode(winmain::Renderer, SDL_BLENDMODE_NONE);
 
 		SDL_Rect src{
 			regions[i]->x * hdScale, regions[i]->y * hdScale, regions[i]->w * hdScale, regions[i]->h * hdScale
@@ -405,8 +433,44 @@ void modernfx::RenderTitleButton()
 	// Shown on the start screen: no game running, the demo playing, or a fresh game before any points.
 	auto table = pb::MainTable;
 	auto fresh = table && table->CurScoreStruct && table->CurScoreStruct->Score <= 0;
-	if (SettingsOpen || !render::vscreen || !table ||
-		(pb::game_mode == GameModes::InGame && !winmain::DemoActive && !fresh))
+
+	// Wide layout: a big button in the left panel, below the backglass. It stays there during play.
+	SDL_Rect wideRect, left, right;
+	auto wide = WideLayout(wideRect, left, right);
+	if (SettingsOpen || !render::vscreen || !table)
+		return;
+	if (wide)
+	{
+		SDL_Rect panels[2];
+		PanelRects(wideRect, left, right, panels);
+		auto top = panels[0].y + panels[0].h;
+		auto centerY = (top + left.y + left.h) / 2.0f;
+		auto fontScale = std::max(1.4f, left.h / 900.0f * 2.6f);
+		ImGui::SetNextWindowPos(ImVec2(panels[0].x + panels[0].w / 2.0f, centerY), ImGuiCond_Always,
+		                        ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowBgAlpha(0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		if (ImGui::Begin("##PanelSettings", nullptr,
+		                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+		                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+		                 ImGuiWindowFlags_NoNav))
+		{
+			ImGui::SetWindowFontScale(fontScale);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.20f, 0.52f, 0.92f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.40f, 0.28f, 0.68f, 0.97f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.50f, 0.35f, 0.85f, 1.0f));
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16 * fontScale, 9 * fontScale));
+			if (ImGui::Button("Settings"))
+				SettingsOpen = true;
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor(3);
+		}
+		ImGui::End();
+		ImGui::PopStyleVar();
+		return;
+	}
+	if (pb::game_mode == GameModes::InGame && !winmain::DemoActive && !fresh)
 		return;
 
 	// Bottom centre of the table, over the apron.
@@ -414,12 +478,6 @@ void modernfx::RenderTitleButton()
 	SDL_Rect clip;
 	render::GetBoardTransform(originX, originY, scaleX, scaleY, clip);
 	auto centerX = clip.x + clip.w / 2.0f, bottom = clip.y + clip.h - 12.0f * scaleY;
-	SDL_Rect wideRect, left, right;
-	if (WideLayout(wideRect, left, right))
-	{
-		centerX = (left.w + right.x) / 2.0f;
-		bottom = static_cast<float>(wideRect.y + wideRect.h) - 12.0f * wideRect.h / render::vscreen->Height;
-	}
 	ImGui::SetNextWindowPos(ImVec2(centerX, bottom), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
 	ImGui::SetNextWindowBgAlpha(0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
