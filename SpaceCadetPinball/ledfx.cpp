@@ -121,6 +121,116 @@ namespace
 		return led;
 	}
 
+	// A round lamp insert found in a light bitmap, in 1x bitmap-local pixels.
+	struct Lamp
+	{
+		float CX, CY, R;
+	};
+
+	// Finds the round lamps in a light: connected blobs of lamp light whose shape is close to a circle.
+	// Arrows, bars and other shapes are left alone.
+	std::vector<Lamp> FindRoundLamps(const gdrv_bitmap8& lit, const Sampler& unlit, int tableX, int tableY)
+	{
+		std::vector<Lamp> lamps;
+		auto w = lit.Width, h = lit.Height;
+		std::vector<uint8_t> mask(w * h), seen(w * h);
+		for (int y = 0; y < h; y++)
+			for (int x = 0; x < w; x++)
+				mask[y * w + x] = LitWeight(lit.BmpBufPtr1[lit.Stride * y + x], unlit(tableX + x, tableY + y)) > 0.25f;
+
+		std::vector<int> stack;
+		for (int start = 0; start < w * h; start++)
+		{
+			if (!mask[start] || seen[start])
+				continue;
+			int minX = w, minY = h, maxX = -1, maxY = -1, area = 0;
+			stack.push_back(start);
+			seen[start] = 1;
+			while (!stack.empty())
+			{
+				auto i = stack.back();
+				stack.pop_back();
+				auto x = i % w, y = i / w;
+				area++;
+				minX = std::min(minX, x);
+				maxX = std::max(maxX, x);
+				minY = std::min(minY, y);
+				maxY = std::max(maxY, y);
+				const int nx[4] = {x - 1, x + 1, x, x}, ny[4] = {y, y, y - 1, y + 1};
+				for (int k = 0; k < 4; k++)
+				{
+					if (nx[k] < 0 || ny[k] < 0 || nx[k] >= w || ny[k] >= h)
+						continue;
+					auto j = ny[k] * w + nx[k];
+					if (mask[j] && !seen[j])
+					{
+						seen[j] = 1;
+						stack.push_back(j);
+					}
+				}
+			}
+
+			auto bw = maxX - minX + 1, bh = maxY - minY + 1;
+			if (bw < 4 || bh < 4)
+				continue;
+			auto aspect = static_cast<float>(std::max(bw, bh)) / std::min(bw, bh);
+			auto fill = area / (3.14159f * bw * bh / 4.0f);
+			if (aspect > 1.35f || fill < 0.72f || fill > 1.15f)
+				continue;
+			lamps.push_back({(minX + maxX + 1) / 2.0f, (minY + maxY + 1) / 2.0f, (bw + bh) / 4.0f});
+		}
+		return lamps;
+	}
+
+	// Shades round lamps like a modern LED insert under a domed lens: a bright core and glass highlight
+	// when lit; a darker dome with a dim reflection when off.
+	void ShadeLamps(gdrv_bitmap8& bmp, const std::vector<Lamp>& lamps, int scale, bool lit)
+	{
+		const ColorRgba white = ColorRgba::White();
+		for (auto& lamp : lamps)
+		{
+			auto x0 = std::max(0, static_cast<int>((lamp.CX - lamp.R) * scale) - 1);
+			auto x1 = std::min(bmp.Width, static_cast<int>((lamp.CX + lamp.R) * scale) + 2);
+			auto y0 = std::max(0, static_cast<int>((lamp.CY - lamp.R) * scale) - 1);
+			auto y1 = std::min(bmp.Height, static_cast<int>((lamp.CY + lamp.R) * scale) + 2);
+			for (int y = y0; y < y1; y++)
+			{
+				for (int x = x0; x < x1; x++)
+				{
+					auto dx = ((x + 0.5f) / scale - lamp.CX) / lamp.R;
+					auto dy = ((y + 0.5f) / scale - lamp.CY) / lamp.R;
+					auto d = std::sqrt(dx * dx + dy * dy);
+					if (d >= 1.0f)
+						continue;
+					// Fade the effect out over the last ~half pixel so the lamp edge stays smooth.
+					auto edge = std::min(1.0f, (1.0f - d) * lamp.R * 1.5f);
+					auto& pixel = bmp.BmpBufPtr1[bmp.Stride * y + x];
+					auto c = pixel;
+
+					auto hx = dx + 0.38f, hy = dy + 0.42f;
+					auto highlight = std::max(0.0f, 1.0f - std::sqrt(hx * hx + hy * hy) / 0.3f);
+					highlight *= highlight;
+
+					if (lit)
+					{
+						auto core = std::max(0.0f, 1.0f - d / 0.6f);
+						auto hot = Lerp(c, white, 0.7f);
+						c = Lerp(c, hot, std::pow(core, 1.3f) * 0.9f);
+						if (d > 0.72f)
+							c = Lerp(c, ColorRgba::Black(), (d - 0.72f) / 0.28f * 0.35f);
+						c = Lerp(c, white, highlight * 0.7f);
+					}
+					else
+					{
+						c = Lerp(c, ColorRgba::Black(), d * d * 0.55f);
+						c = Lerp(c, white, highlight * 0.5f);
+					}
+					pixel = Lerp(pixel, c, edge);
+				}
+			}
+		}
+	}
+
 	// Unlit LED insert: the table under the lamp, darkened where the lamp's lit bitmap shines.
 	gdrv_bitmap8* MakeOff(const gdrv_bitmap8& lit, const gdrv_bitmap8& table, int tableX, int tableY)
 	{
@@ -261,11 +371,16 @@ gdrv_bitmap8* ledfx::OffBitmap(const render_sprite& sprite)
 	if (it != OffCache.end())
 		return it->second;
 
+	Sampler tableSampler = [table](int x, int y) { return PixelAt(table, x, y); };
+	auto lamps = FindRoundLamps(*src, tableSampler, sprite.OffX, sprite.OffY);
 	auto off = MakeOff(*src, *table, sprite.OffX, sprite.OffY);
+	ShadeLamps(*off, lamps, 1, false);
 	if (hdgfx::Active())
 	{
 		auto s = hdgfx::Scale;
-		hdgfx::SetTwin(off, MakeOff(*hdgfx::Twin(src), *hdgfx::Twin(table), sprite.OffX * s, sprite.OffY * s));
+		auto hdOff = MakeOff(*hdgfx::Twin(src), *hdgfx::Twin(table), sprite.OffX * s, sprite.OffY * s);
+		ShadeLamps(*hdOff, lamps, s, false);
+		hdgfx::SetTwin(off, hdOff);
 	}
 	OffCache[src] = off;
 	return off;
@@ -327,12 +442,19 @@ ledfx::BmpInfo& ledfx::Info(gdrv_bitmap8* bmp, int xPos, int yPos)
 	};
 
 	auto unlit = makeSampler(table, 1, false);
+	// Round table lamps get the LED lens look; bumpers (which have their own unlit art) don't.
+	std::vector<Lamp> lamps;
+	if (!ref)
+		lamps = FindRoundLamps(*bmp, unlit, xPos, yPos);
 	info.Led = MakeLed(*bmp, unlit, xPos, yPos);
+	ShadeLamps(*info.Led, lamps, 1, true);
 	if (hdgfx::Active())
 	{
 		auto s = hdgfx::Scale;
 		auto hdUnlit = makeSampler(hdgfx::Twin(table), s, true);
-		hdgfx::SetTwin(info.Led, MakeLed(*hdgfx::Twin(bmp), hdUnlit, xPos * s, yPos * s));
+		auto hdLed = MakeLed(*hdgfx::Twin(bmp), hdUnlit, xPos * s, yPos * s);
+		ShadeLamps(*hdLed, lamps, s, true);
+		hdgfx::SetTwin(info.Led, hdLed);
 	}
 	info.Glow = MakeGlow(*info.Led, unlit, xPos, yPos, info.Emission);
 	return info;
