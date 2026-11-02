@@ -32,6 +32,7 @@ namespace
 
 	// Light spill onto the table around a lamp: border in 1x pixels; built at half resolution.
 	constexpr int SpillPad = 44;
+	constexpr float MaxGlow = 240.0f, MaxSpill = 70.0f; // brightest point of a glow / spill texture
 
 	// Dot-matrix display: texture pixels per display dot, glow border in 1x pixels.
 	constexpr int DotCell = 6;
@@ -332,12 +333,18 @@ namespace
 		}
 		GaussianBlur(source, width, height, 6.5f);
 
+		// Big inserts would otherwise flood the table with solid colour; cap the brightest point.
+		auto gain = 5.0f;
+		auto peak = *std::max_element(source.begin(), source.end()) * gain;
+		if (peak > MaxSpill)
+			gain *= MaxSpill / peak;
+
 		std::vector<ColorRgba> pixels(width * height);
 		for (int i = 0; i < width * height; i++)
 		{
 			uint8_t out[3];
 			for (int c = 0; c < 3; c++)
-				out[c] = static_cast<uint8_t>(std::min(255.0f, source[i * 3 + c] * 5.0f));
+				out[c] = static_cast<uint8_t>(std::min(255.0f, source[i * 3 + c] * gain));
 			pixels[i] = ColorRgba{out[0], out[1], out[2], 255};
 		}
 		return MakeTexture(pixels, width, height);
@@ -370,13 +377,20 @@ namespace
 		GaussianBlur(halo, width, height, 1.6f);
 		GaussianBlur(source, width, height, 5.0f);
 
+		// Large or tightly packed inserts would glow as a solid white blob; cap the brightest point so
+		// they keep the same soft look as small lamps.
+		float peak = 0;
+		for (int i = 0; i < width * height * 3; i++)
+			peak = std::max(peak, halo[i] * 0.6f + source[i] * 2.2f);
+		auto gain = peak > MaxGlow ? MaxGlow / peak : 1.0f;
+
 		std::vector<ColorRgba> pixels(width * height);
 		for (int i = 0; i < width * height; i++)
 		{
 			uint8_t out[3];
 			for (int c = 0; c < 3; c++)
 			{
-				auto v = halo[i * 3 + c] * 0.6f + source[i * 3 + c] * 2.2f;
+				auto v = (halo[i * 3 + c] * 0.6f + source[i * 3 + c] * 2.2f) * gain;
 				out[c] = static_cast<uint8_t>(std::min(255.0f, v));
 			}
 			pixels[i] = ColorRgba{out[0], out[1], out[2], 255};
