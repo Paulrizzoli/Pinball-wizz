@@ -40,6 +40,26 @@ struct CustomTableEntry
 	TablePreview Preview;
 };
 
+// Rules from the table file, with parts and lights as their record (group) numbers.
+struct CustomRuleGroup
+{
+	std::string Name;
+	std::vector<int> Parts;
+	std::vector<int> Lights; // Lights[i] lights up when Parts[i] is done (or as hits add up)
+	int Hits = 0; // 0: hit every part once; otherwise this many hits on any of the parts
+	int Score = 5000;
+	int Bonus = 0;
+	std::string Award; // none, multiplier, extraBall
+	std::string Message;
+};
+
+struct CustomRules
+{
+	std::vector<CustomRuleGroup> Groups;
+	int ExtraBallLight = -1;
+	std::vector<int> MultiplierLights;
+};
+
 class customtable
 {
 public:
@@ -74,5 +94,7 @@ public:
 
 	// Exposed for the table builder.
 	static std::map<int, int> Scores;
+	static std::map<int, int> Bonus; // end-of-ball bonus a part adds when hit
+	static CustomRules Rules;
 	static int BuildScale;
 };

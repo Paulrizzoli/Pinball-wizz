@@ -35,6 +35,8 @@ std::string customtable::Name;
 std::string customtable::Path;
 int customtable::BallsPerGame = 3;
 std::map<int, int> customtable::Scores;
+std::map<int, int> customtable::Bonus;
+CustomRules customtable::Rules;
 int customtable::BuildScale = 1;
 std::vector<std::string> customtable::SearchFolders;
 
@@ -566,6 +568,11 @@ namespace
 		bool AddFlipper(const Value& part, std::string& error);
 		bool AddPlunger(const Value& part, std::string& error);
 		bool AddDrain(const Value& part, std::string& error);
+		bool AddLane(const Value& part, std::string& error);
+		bool AddTarget(const Value& part, std::string& error);
+		bool AddLight(const Value& part, std::string& error);
+		bool ReadRules(std::string& error);
+		std::map<std::string, int> Ids; // part id -> group
 
 		void PaintPlayfieldTexture();
 		int BuildTableLayer();
@@ -1038,6 +1045,220 @@ namespace
 		return true;
 	}
 
+
+	bool Builder::AddLane(const Value& part, std::string& error)
+	{
+		// A rollover switch across a lane: the ball rolls over it and it counts a hit.
+		auto pts = ReadPoints(part["points"]);
+		if (pts.size() != 2)
+		{
+			error = "A lane needs 2 points (the line the ball crosses)";
+			return false;
+		}
+		// A thin closed shape, so the switch counts the ball from either side (each edge only faces one way).
+		GroupBuild g;
+		g.ShortValue(200);
+		g.Floats(WallFloats(Outward(ThickLine(pts, 0.02f))));
+		auto group = Commit(Dat, g);
+		Objects.push_back({1024, group});
+		customtable::Scores[group] = part["score"].Int(100);
+		customtable::Bonus[group] = part["bonus"].Int(500);
+
+		auto a = pts[0], b = pts[1];
+		auto wire = Metal(PostColor);
+		Scenery.push_back([=](Art3D& art)
+		{
+			// Wire switch: a thin arc of metal across the middle of the line.
+			P2 mid{(a.X + b.X) * 0.5f, (a.Y + b.Y) * 0.5f};
+			P2 d{b.X - a.X, b.Y - a.Y};
+			auto len = std::sqrt(d.X * d.X + d.Y * d.Y);
+			if (len < 0.01f)
+				return;
+			P2 n{d.X / len, d.Y / len};
+			auto half = std::min(0.35f, len * 0.3f);
+			auto seg = ThickLine({{mid.X - n.X * half, mid.Y - n.Y * half}, {mid.X + n.X * half, mid.Y + n.Y * half}},
+			                     0.03f);
+			art.Prism(To3D(seg), 0, 0.06f, ArtSolid(wire), ArtSolid(wire));
+		});
+		return true;
+	}
+
+	bool Builder::AddTarget(const Value& part, std::string& error)
+	{
+		// A stand-up target: a plastic face on a post. The face looks along "angle" (degrees, 0 = right,
+		// 90 = towards the player, -90 = up the table).
+		auto x = part["x"].Float(), y = part["y"].Float();
+		auto width = part["width"].Float(0.8f);
+		auto angle = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+		auto color = Color(part["color"], Accent);
+		P2 face{std::cos(angle), std::sin(angle)};
+		P2 along{-face.Y, face.X};
+		const float depth = 0.16f;
+		auto corner = [&](float s, float t) { return P2{x + along.X * s + face.X * t, y + along.Y * s + face.Y * t}; };
+		std::vector<P2> box{
+			corner(-width / 2, -depth / 2), corner(width / 2, -depth / 2), corner(width / 2, depth / 2),
+			corner(-width / 2, depth / 2)
+		};
+		box = Outward(box);
+
+		StatefulPart sp;
+		sp.Main.ShortValue(200);
+		sp.Main.Shorts({100, 2, 300, MatRubber, 400, Kicker(0.6f, part["strength"].Float(2.0f))});
+		sp.Main.Floats(WallFloats(box));
+
+		std::vector<ArtVec> corners;
+		for (auto& p : box)
+		{
+			corners.push_back({p.X, p.Y, 0});
+			corners.push_back({p.X, p.Y, 0.65f});
+		}
+		auto bounds = ScreenBounds(corners);
+		auto post = Metal(PostColor.Scaled(0.8f));
+		auto inner = Grow(box, -0.02f);
+		std::vector<P2> stem{
+			corner(-0.06f, -depth / 2 - 0.12f), corner(0.06f, -depth / 2 - 0.12f), corner(0.06f, -depth / 2),
+			corner(-0.06f, -depth / 2)
+		};
+		stem = Outward(stem);
+		for (int hit = 0; hit < 2; hit++)
+		{
+			auto canvas = NewCanvas(bounds);
+			auto body = Plastic(color);
+			auto top = Plastic(color.Mix({1, 1, 1}, 0.25f));
+			if (hit)
+			{
+				body.Glow = 0.8f;
+				top.Glow = 0.9f;
+				body.Color = color.Mix({1, 1, 1}, 0.3f);
+			}
+			canvas.Prism(To3D(stem), 0, 0.4f, ArtSolid(post), ArtSolid(post));
+			canvas.Prism(To3D(inner), 0.08f, 0.6f, ArtSolid(top), ArtSolid(body));
+			gdrv_bitmap8* bmp;
+			zmap_header_type* zMap;
+			ResolveSprite(canvas, bmp, zMap);
+			if (hit == 0)
+				sp.Main.Sprite(bmp, zMap);
+			else
+				sp.States.push_back({bmp, zMap});
+		}
+		auto group = CommitStateful(Dat, sp);
+		Objects.push_back({1019, group});
+		customtable::Scores[group] = part["score"].Int(250);
+		customtable::Bonus[group] = part["bonus"].Int(500);
+		return true;
+	}
+
+	bool Builder::AddLight(const Value& part, std::string& error)
+	{
+		// A lamp under a playfield insert. The unlit insert is painted on the playfield; this is the lit image.
+		auto x = part["x"].Float(), y = part["y"].Float(), r = part["radius"].Float(0.35f);
+		auto color = Color(part["color"], Accent);
+		auto arrow = part["shape"].Str() == "arrow";
+		auto a = part["angle"].Float(-90.0f) * 3.14159265f / 180.0f;
+		P2 dir{std::cos(a), std::sin(a)};
+
+		std::vector<ArtVec> corners{{x - r * 1.6f, y - r * 1.6f, 0}, {x + r * 1.6f, y + r * 1.6f, 0},
+		                            {x - r * 1.6f, y + r * 1.6f, 0}, {x + r * 1.6f, y - r * 1.6f, 0}};
+		auto canvas = NewCanvas(ScreenBounds(corners));
+		ArtMaterial lit;
+		lit.Color = color.Mix({1, 1, 1}, 0.35f);
+		lit.Glow = 1.1f;
+		lit.Specular = 0.6f;
+		if (arrow)
+		{
+			P2 tip{x + dir.X * r * 1.3f, y + dir.Y * r * 1.3f};
+			for (int side = -1; side <= 1; side += 2)
+			{
+				P2 b{x - dir.X * r * 0.6f - dir.Y * r * side, y - dir.Y * r * 0.6f + dir.X * r * side};
+				canvas.Prism(To3D(ThickLine({tip, b}, r * 0.27f)), 0, 0.012f, ArtSolid(lit), ArtSolid(lit));
+				canvas.Cylinder(b.X, b.Y, r * 0.27f, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 16);
+			}
+			canvas.Cylinder(tip.X, tip.Y, r * 0.27f, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 16);
+		}
+		else
+			canvas.Cylinder(x, y, r, 0, 0.012f, ArtSolid(lit), ArtSolid(lit), 32);
+		gdrv_bitmap8* bmp;
+		zmap_header_type* zMap;
+		ResolveSprite(canvas, bmp, zMap);
+
+		GroupBuild g;
+		g.ShortValue(200);
+		g.Shorts({100, 1});
+		g.Sprite(bmp, zMap);
+		g.Floats({900.0f, part["flash"].Float(0.15f)});
+		g.Floats({901.0f, part["flash"].Float(0.15f)});
+		Objects.push_back({1002, Commit(Dat, g)});
+		return true;
+	}
+
+	bool Builder::ReadRules(std::string& error)
+	{
+		auto& rules = customtable::Rules;
+		rules = CustomRules();
+		auto& doc = Doc["rules"];
+		auto lookup = [&](const Value& v, int& out, const char* what) -> bool
+		{
+			out = -1;
+			auto id = v.Str();
+			if (id.empty())
+				return true;
+			auto it = Ids.find(id);
+			if (it == Ids.end())
+			{
+				error = std::string("no part with id \"") + id + "\" (" + what + ")";
+				return false;
+			}
+			out = it->second;
+			return true;
+		};
+
+		for (auto& g : doc["groups"].Items())
+		{
+			CustomRuleGroup group;
+			group.Name = g["name"].Str("GROUP");
+			for (auto& id : g["parts"].Items())
+			{
+				int index;
+				if (!lookup(id, index, "group part"))
+					return false;
+				group.Parts.push_back(index);
+			}
+			for (auto& id : g["lights"].Items())
+			{
+				int index;
+				if (!lookup(id, index, "group light"))
+					return false;
+				group.Lights.push_back(index);
+			}
+			if (group.Parts.empty())
+			{
+				error = "group " + group.Name + " has no parts";
+				return false;
+			}
+			group.Hits = g["hits"].Int(0);
+			group.Score = g["score"].Int(5000);
+			group.Bonus = g["bonus"].Int(0);
+			group.Award = g["award"].Str("none");
+			group.Message = g["message"].Str();
+			if (group.Award != "none" && group.Award != "multiplier" && group.Award != "extraBall")
+			{
+				error = "group " + group.Name + ": award must be none, multiplier or extraBall";
+				return false;
+			}
+			rules.Groups.push_back(group);
+		}
+		if (!lookup(doc["extraBallLight"], rules.ExtraBallLight, "extraBallLight"))
+			return false;
+		for (auto& id : doc["multiplierLights"].Items())
+		{
+			int index;
+			if (!lookup(id, index, "multiplierLights"))
+				return false;
+			rules.MultiplierLights.push_back(index);
+		}
+		return true;
+	}
+
 	void Builder::PaintPlayfieldTexture()
 	{
 		TexPerUnit = std::min(64.0f, 20.0f * Scale);
@@ -1101,6 +1322,38 @@ namespace
 			               6.4f * TexPerUnit, TexPerUnit * 0.08f, Accent2, 3.2f * TexPerUnit, 0.45f);
 			tex.StrokeRect(u(cx) - 3.6f * TexPerUnit, v(cy) - 3.6f * TexPerUnit, 7.2f * TexPerUnit,
 			               7.2f * TexPerUnit, TexPerUnit * 0.03f, Accent2, 3.6f * TexPerUnit, 0.35f);
+		}
+
+		// Light inserts, unlit, with their labels.
+		for (auto& part : Doc["parts"].Items())
+		{
+			if (part["type"].Str() != "light")
+				continue;
+			auto lx = part["x"].Float(), ly = part["y"].Float(), lr = part["radius"].Float(0.35f);
+			auto lc = Color(part["color"], Accent);
+			auto unlit = lc.Mix(Playfield2, 0.65f);
+			if (part["shape"].Str() == "arrow")
+			{
+				auto a = (part["angle"].Float(-90.0f)) * 3.14159265f / 180.0f;
+				auto dx = std::cos(a), dy = std::sin(a);
+				auto tipX = lx + dx * lr * 1.3f, tipY = ly + dy * lr * 1.3f;
+				for (int side = -1; side <= 1; side += 2)
+				{
+					auto bx = lx - dx * lr * 0.6f - dy * lr * side, by = ly - dy * lr * 0.6f + dx * lr * side;
+					tex.Line(u(tipX), v(tipY), u(bx), v(by), lr * 0.55f * TexPerUnit, unlit);
+				}
+			}
+			else
+			{
+				tex.Circle(u(lx), v(ly), lr * 1.18f * TexPerUnit, Playfield2.Scaled(0.6f));
+				tex.Circle(u(lx), v(ly), lr * TexPerUnit, unlit);
+			}
+			auto label = part["label"].Str();
+			if (!label.empty())
+			{
+				auto ls = TexPerUnit * part["labelSize"].Float(0.32f);
+				tex.Text(label, u(lx), v(ly + lr * 1.35f), ls, ls * 0.16f, {0.92f, 0.92f, 0.95f}, 1, 0.85f);
+			}
 		}
 
 		// The table's name, painted across the lower playfield.
@@ -1477,6 +1730,7 @@ namespace
 		for (auto& part : Doc["parts"].Items())
 		{
 			auto type = part["type"].Str();
+			auto objectsBefore = Objects.size();
 			bool ok = true;
 			if (type == "wall")
 				ok = AddWall(part, error);
@@ -1519,8 +1773,18 @@ namespace
 					ok = AddDrain(part, error);
 				haveDrain = true;
 			}
+			else if (type == "lane")
+				ok = AddLane(part, error);
+			else if (type == "target")
+				ok = AddTarget(part, error);
+			else if (type == "light")
+				ok = AddLight(part, error);
 			else
 				printf("Custom table: skipping unknown part type \"%s\"\n", type.c_str());
+
+			auto id = part["id"].Str();
+			if (ok && !id.empty() && Objects.size() > objectsBefore)
+				Ids[id] = Objects.back().second;
 
 			if (!ok)
 			{
@@ -1536,6 +1800,13 @@ namespace
 		{
 			Value drain = Value::MakeObject();
 			AddDrain(drain, error);
+		}
+		if (!ReadRules(error))
+		{
+			error = "Rules: " + error;
+			delete Dat;
+			Dat = nullptr;
+			return nullptr;
 		}
 		if (!haveLeft || !haveRight || !havePlunger)
 		{
@@ -1740,6 +2011,8 @@ void customtable::Unload()
 	Name.clear();
 	Path.clear();
 	Scores.clear();
+	Bonus.clear();
+	Rules = CustomRules();
 	Pending.clear();
 	BallsPerGame = 3;
 }

@@ -2930,7 +2930,10 @@ void control::BallDrainControl(MessageCode code, TPinballComponent* caller)
 void control::table_control_handler(MessageCode code)
 {
 	if (customtable::Active)
+	{
+		customrules::TableMessage(code);
 		return;
+	}
 	if (code == MessageCode::SetTiltLock)
 	{
 		table_unlimited_balls = false;

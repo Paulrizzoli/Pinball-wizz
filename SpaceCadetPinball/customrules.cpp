@@ -15,16 +15,92 @@
 
 TPinballTable* customrules::Table = nullptr;
 bool customrules::LastBall = false;
+int customrules::BallBonus = 0;
+int customrules::ActivePlayer = 0;
+std::vector<customrules::GroupState> customrules::Groups[4];
+std::map<int, TPinballComponent*> customrules::Parts;
+
+namespace
+{
+	const int Multipliers[5] = {1, 2, 3, 5, 10};
+
+	std::string Thousands(int value)
+	{
+		auto digits = std::to_string(value);
+		std::string out;
+		for (size_t i = 0; i < digits.size(); i++)
+		{
+			if (i && (digits.size() - i) % 3 == 0)
+				out += ',';
+			out += digits[i];
+		}
+		return out;
+	}
+}
 
 void customrules::Attach(TPinballTable* table)
 {
 	Table = table;
 	LastBall = false;
+	BallBonus = 0;
+	ActivePlayer = 0;
+	Parts.clear();
+	for (auto component : table->ComponentList)
+		if (component->GroupIndex >= 0)
+			Parts[component->GroupIndex] = component;
+	for (int player = 0; player < 4; player++)
+		ResetGroups(player);
 }
 
 void customrules::Detach()
 {
 	Table = nullptr;
+	Parts.clear();
+}
+
+void customrules::ResetGroups(int player)
+{
+	auto& groups = Groups[player];
+	groups.clear();
+	for (auto& group : customtable::Rules.Groups)
+	{
+		GroupState state;
+		state.Done.assign(group.Parts.size(), false);
+		groups.push_back(state);
+	}
+}
+
+void customrules::Info(const std::string& text, float seconds)
+{
+	if (pb::InfoTextBox)
+		pb::InfoTextBox->Display(text.c_str(), seconds);
+}
+
+void customrules::Mission(const std::string& text, float seconds)
+{
+	if (pb::MissTextBox)
+		pb::MissTextBox->Display(text.c_str(), seconds);
+}
+
+void customrules::SetLight(int group, bool on)
+{
+	auto it = Parts.find(group);
+	if (it != Parts.end())
+		it->second->Message(on ? MessageCode::TLightResetAndTurnOn : MessageCode::TLightResetAndTurnOff, 0.0f);
+}
+
+void customrules::FlashLight(int group, float seconds)
+{
+	auto it = Parts.find(group);
+	if (it != Parts.end())
+		it->second->Message(MessageCode::TLightFlasherStartTimedThenStayOff, seconds);
+}
+
+void customrules::ShowMultiplierLights()
+{
+	auto& lights = customtable::Rules.MultiplierLights;
+	for (size_t i = 0; i < lights.size(); i++)
+		SetLight(lights[i], static_cast<int>(i) < Table->ScoreMultiplier);
 }
 
 void customrules::Handler(MessageCode code, TPinballComponent* caller)
@@ -41,11 +117,7 @@ void customrules::Handler(MessageCode code, TPinballComponent* caller)
 			break;
 		}
 		if (!Table->TiltLockFlag)
-		{
-			auto score = customtable::ScoreFor(caller);
-			if (score > 0)
-				Table->AddScore(score);
-		}
+			PartHit(caller);
 		break;
 	case MessageCode::ControlTimerExpired:
 		if (caller != Table->Drain)
@@ -72,6 +144,92 @@ void customrules::Handler(MessageCode code, TPinballComponent* caller)
 	}
 }
 
+void customrules::PartHit(TPinballComponent* part)
+{
+	auto index = part->GroupIndex;
+	auto score = customtable::ScoreFor(part);
+	if (score > 0)
+		Table->AddScore(score);
+	auto bonus = customtable::Bonus.find(index);
+	if (bonus != customtable::Bonus.end())
+		BallBonus += bonus->second;
+
+	auto& rules = customtable::Rules.Groups;
+	auto& states = Groups[ActivePlayer];
+	for (size_t g = 0; g < rules.size() && g < states.size(); g++)
+	{
+		auto& rule = rules[g];
+		auto& state = states[g];
+		for (size_t i = 0; i < rule.Parts.size(); i++)
+		{
+			if (rule.Parts[i] != index)
+				continue;
+			if (rule.Hits <= 0)
+			{
+				if (state.Done[i])
+					break;
+				state.Done[i] = true;
+				if (i < rule.Lights.size())
+					SetLight(rule.Lights[i], true);
+				auto done = static_cast<int>(std::count(state.Done.begin(), state.Done.end(), true));
+				auto total = static_cast<int>(state.Done.size());
+				if (done >= total)
+					Complete(g);
+				else
+					Mission(rule.Name + "  " + std::to_string(done) + " of " + std::to_string(total), 2.0f);
+			}
+			else
+			{
+				state.Hits++;
+				// Lights fill up as hits add up.
+				auto lights = rule.Lights.size();
+				for (size_t l = 0; l < lights; l++)
+					SetLight(rule.Lights[l], state.Hits * static_cast<int>(lights) >= rule.Hits * static_cast<int>(l + 1));
+				if (state.Hits >= rule.Hits)
+					Complete(g);
+				else
+					Mission(rule.Name + "  " + std::to_string(state.Hits) + " of " + std::to_string(rule.Hits), 1.5f);
+			}
+			break;
+		}
+	}
+}
+
+void customrules::Complete(size_t groupIndex)
+{
+	auto& rule = customtable::Rules.Groups[groupIndex];
+	auto& state = Groups[ActivePlayer][groupIndex];
+	state.Done.assign(state.Done.size(), false);
+	state.Hits = 0;
+	for (auto light : rule.Lights)
+		FlashLight(light, 1.5f);
+
+	auto added = rule.Score > 0 ? Table->AddScore(rule.Score) : 0;
+	BallBonus += rule.Bonus;
+
+	std::string award;
+	if (rule.Award == "multiplier")
+	{
+		if (Table->ScoreMultiplier < 4)
+			Table->ScoreMultiplier++;
+		award = "MULTIPLIER " + std::to_string(Multipliers[Table->ScoreMultiplier]) + "X";
+		ShowMultiplierLights();
+	}
+	else if (rule.Award == "extraBall")
+	{
+		Table->ExtraBalls++;
+		award = "EXTRA BALL";
+		SetLight(customtable::Rules.ExtraBallLight, true);
+	}
+
+	auto message = rule.Message.empty() ? rule.Name + " COMPLETE" : rule.Message;
+	if (!award.empty())
+		message += "\n" + award;
+	else if (added > 0)
+		message += "\n" + Thousands(added);
+	Mission(message, 3.0f);
+}
+
 void customrules::Drained()
 {
 	// Other balls still in play.
@@ -84,14 +242,25 @@ void customrules::Drained()
 		return;
 	}
 
+	// End-of-ball bonus, times the multiplier.
+	if (!Table->TiltLockFlag && BallBonus > 0)
+	{
+		auto added = Table->AddScore(BallBonus);
+		Mission("BONUS " + Thousands(added), 2.0f);
+	}
+	BallBonus = 0;
+	Table->ScoreMultiplier = 0;
+	ShowMultiplierLights();
+
 	if (Table->TiltLockFlag)
 		Table->Message(MessageCode::ClearTiltLock, 0.0);
 
 	if (Table->ExtraBalls)
 	{
 		Table->ExtraBalls--;
-		if (pb::InfoTextBox)
-			pb::InfoTextBox->Display(pb::get_rc_string(Msg::STRING198), -1.0);
+		if (!Table->ExtraBalls)
+			SetLight(customtable::Rules.ExtraBallLight, false);
+		Info(pb::get_rc_string(Msg::STRING198), -1.0f);
 		LastBall = false;
 		return;
 	}
@@ -105,6 +274,28 @@ void customrules::Drained()
 	else
 	{
 		LastBall = true;
+	}
+}
+
+void customrules::TableMessage(MessageCode code)
+{
+	if (!Table)
+		return;
+	switch (code)
+	{
+	case MessageCode::Reset:
+		LastBall = false;
+		BallBonus = 0;
+		ActivePlayer = 0;
+		for (int player = 0; player < 4; player++)
+			ResetGroups(player);
+		break;
+	case MessageCode::SwitchToNextPlayer:
+		// Each player keeps their own group progress; the lights keep their own state per player.
+		ActivePlayer = std::max(0, std::min(3, Table->CurrentPlayer));
+		break;
+	default:
+		break;
 	}
 }
 
