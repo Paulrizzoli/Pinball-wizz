@@ -39,7 +39,7 @@ public:
 	// Settings window with every graphics switch.
 	static bool SettingsOpen;
 	static void RenderSettingsWindow();
-	// Big "Settings" button shown while no game is running.
+	// "Settings" button: big, in the left panel, in the wide layout; otherwise on the table while no game is running.
 	static void RenderTitleButton();
 
 	static void Uninit();
@@ -60,6 +60,8 @@ private:
 	static int ScanlinesHeight;
 
 	static void PanelRegions(SDL_Rect& logo, SDL_Rect& scores);
+	// Where the backglass and score panel are drawn in the wide layout.
+	static void PanelRects(const SDL_Rect& screenRect, const SDL_Rect& left, const SDL_Rect& right, SDL_Rect dst[2]);
 	static void FitRect(const SDL_Rect& src, const SDL_Rect& area, float maxScale, SDL_Rect& dst);
 	static SDL_Texture* GetDot();
 };
