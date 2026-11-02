@@ -166,6 +166,7 @@ optionsStruct options::Options
 	{"Widescreen Backglass", true},
 	{"CRT Filter", false},
 	{"Smooth Play", true},
+	{"HD Detail", 0},
 };
 
 void options::InitPrimary()

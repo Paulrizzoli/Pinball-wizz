@@ -9,6 +9,7 @@
 #include "pb.h"
 #include "render.h"
 #include "modernfx.h"
+#include "hdgfx.h"
 #include "Sound.h"
 #include "translations.h"
 #include "font_selection.h"
@@ -724,6 +725,20 @@ void winmain::RenderUi()
 					{
 						options::toggle(static_cast<Menu1>(static_cast<int>(Menu1::R640x480) + i));
 					}
+				}
+				if (hdgfx::PackScale >= 2)
+				{
+					// These sizes pick the original table art. With an HD pack the table is drawn larger; its
+					// detail level is chosen in Settings.
+					ImGui::Separator();
+					if (hdgfx::Active())
+						ImGui::TextDisabled("HD pack: drawn at %dx (%d x %d)", hdgfx::Scale,
+						                    render::vscreen ? render::vscreen->Width * hdgfx::Scale : 0,
+						                    render::vscreen ? render::vscreen->Height * hdgfx::Scale : 0);
+					else
+						ImGui::TextDisabled("HD pack: off");
+					if (ImGui::MenuItem("HD detail in Settings..."))
+						modernfx::SettingsOpen = true;
 				}
 				ImGui::EndMenu();
 			}

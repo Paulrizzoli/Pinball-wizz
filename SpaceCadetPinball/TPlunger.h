@@ -20,6 +20,7 @@ public:
 	float MaxPullback;
 	float PullbackIncrement;
 	float PullbackDelay;
+	static constexpr float ReleaseWindow = 0.15f;
 	int SoundIndexP1;
 	int SoundIndexP2;
 	bool PullbackStartedFlag{};

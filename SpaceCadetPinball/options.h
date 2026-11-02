@@ -308,4 +308,5 @@ struct optionsStruct
 	BoolOption Backglass;
 	BoolOption CrtFilter;
 	BoolOption SmoothPlay;
+	IntOption HdDetail; // 0 = auto, 1 = original art, 2..4 = HD pack scale
 };

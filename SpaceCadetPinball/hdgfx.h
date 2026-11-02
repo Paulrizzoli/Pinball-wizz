@@ -21,6 +21,10 @@ class hdgfx
 public:
 	// Current HD scale; 1 means HD is off and nothing is mirrored.
 	static int Scale;
+	// Scale of the HD pack on disk (may be higher than Scale when a lower detail level is picked).
+	static int PackScale;
+	// Detail level the "Auto" setting picks for this screen, capped at the pack scale.
+	static int AutoScale(int packScale, int tableHeight);
 
 	static bool Active() { return Scale > 1; }
 
@@ -57,4 +61,5 @@ private:
 	static gdrv_bitmap8* UpscaleNearest(const gdrv_bitmap8& bmp);
 	static zmap_header_type* UpscaleNearest(const zmap_header_type& zMap);
 	static gdrv_bitmap8* LoadPng(const std::string& path, const gdrv_bitmap8& original);
+	static void Downscale(const unsigned char* pixels, int packScale, gdrv_bitmap8& twin);
 };

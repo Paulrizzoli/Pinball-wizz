@@ -57,7 +57,14 @@ void TPlunger::Collision(TBall* ball, vector2* nextPosition, vector2* direction,
 	else 
 	{
 		auto boost = RandFloat() * Boost * 0.1f + Boost;
+		auto launch = Threshold <= 0.0f;
 		maths::basic_collision(ball, nextPosition, direction, Elasticity, Smoothness, Threshold, boost);
+		if (launch)
+		{
+			// The ball got its strike; close the release window so it is launched exactly once.
+			timer::kill(ReleasedTimer);
+			ReleasedTimer(0, this);
+		}
 	}
 }
 
@@ -133,7 +140,10 @@ int TPlunger::Message(MessageCode code, float value)
 			PullbackTimer_ = 0;
 			loader::play_sound(SoundIndexP2, this, "TPlunger3");
 			SpriteSet(0);
-			timer::set(PullbackDelay, this, ReleasedTimer);
+			// The plunger strikes the ball on its next contact. A ball resting on the plunger keeps
+			// bouncing slightly, so contact can be a few hundredths of a second away; wait long enough
+			// for it at any update rate instead of only PullbackDelay (25 ms), which often missed.
+			timer::set(ReleaseWindow, this, ReleasedTimer);
 		}
 		break;
 	case MessageCode::Reset:
