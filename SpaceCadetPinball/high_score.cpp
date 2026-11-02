@@ -15,20 +15,46 @@ high_score_entry high_score::DlgData;
 std::vector<high_score_entry> high_score::ScoreQueue;
 high_score_struct high_score::highscore_table[5];
 
-std::string high_score::Key(int position, const char* field)
+std::string high_score::Prefix(bool customTable, const std::string& tableName)
 {
 	// Each custom table keeps its own high scores; Space Cadet keeps the original keys.
-	std::string key;
-	if (customtable::Active)
-	{
-		key = "Table ";
-		for (auto c : customtable::Name)
-			key += std::isalnum(static_cast<unsigned char>(c)) ? c : '_';
-		key += ' ';
-	}
+	if (!customTable)
+		return "";
+	std::string key = "Table ";
+	for (auto c : tableName)
+		key += std::isalnum(static_cast<unsigned char>(c)) ? c : '_';
+	return key + ' ';
+}
+
+std::string high_score::Key(int position, const char* field)
+{
+	auto key = Prefix(customtable::Active, customtable::Name);
 	if (position >= 0)
 		key += std::to_string(position);
 	return key + field;
+}
+
+int high_score::BestScore(bool customTable, const std::string& tableName)
+{
+	// The table being played has its scores in memory (they are saved when the game closes).
+	if (customTable == customtable::Active && (!customTable || tableName == customtable::Name))
+		return highscore_table[0].Name[0] || highscore_table[0].Score > 0 ? highscore_table[0].Score : -1;
+
+	auto prefix = Prefix(customTable, tableName);
+	int checkSum = 0, best = -1;
+	for (auto position = 0; position < 5; ++position)
+	{
+		auto name = options::GetSetting(prefix + std::to_string(position) + ".Name", "");
+		auto score = options::get_int((prefix + std::to_string(position) + ".Score").c_str(), -999);
+		for (auto c : name)
+			checkSum += c;
+		checkSum += score;
+		if (position == 0)
+			best = score;
+	}
+	if (checkSum != options::get_int((prefix + "Verification").c_str(), 7))
+		return -1;
+	return best > 0 ? best : -1;
 }
 
 int high_score::read()

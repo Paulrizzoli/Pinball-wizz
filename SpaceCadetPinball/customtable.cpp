@@ -1578,6 +1578,95 @@ namespace
 	}
 }
 
+namespace
+{
+	uint32_t PackColor(const ArtColor& c)
+	{
+		auto ch = [](float v) { return static_cast<uint32_t>(Clamp01(v) * 255.0f + 0.5f); };
+		return ch(c.R) | ch(c.G) << 8 | ch(c.B) << 16 | 0xFFu << 24;
+	}
+
+	void BuildPreview(const Value& doc, TablePreview& out)
+	{
+		// Same default colours as the table builder.
+		auto& theme = doc["theme"];
+		auto color = [](const Value& v, ArtColor def) { return ArtColor::FromHex(v.Str(), def); };
+		auto playfield = color(doc["playfield"]["color"], {0.09f, 0.15f, 0.3f});
+		auto walls = color(theme["walls"], {0.72f, 0.77f, 0.86f});
+		auto rubber = color(theme["rubber"], {0.95f, 0.95f, 0.93f});
+		auto accent = color(theme["accent"], {1.0f, 0.55f, 0.12f});
+		auto accent2 = color(theme["accent2"], {0.2f, 0.8f, 1.0f});
+		out.Width = doc["playfield"]["width"].Float(16.0f);
+		out.Length = doc["playfield"]["length"].Float(29.0f);
+		out.Playfield = PackColor(playfield);
+		out.Playfield2 = PackColor(color(doc["playfield"]["color2"], playfield.Scaled(0.45f)));
+		out.Accent = PackColor(accent);
+		out.Shapes.clear();
+
+		auto points = [](const Value& v)
+		{
+			std::vector<float> pts;
+			for (auto& p : v.Items())
+			{
+				pts.push_back(p[static_cast<size_t>(0)].Float());
+				pts.push_back(p[static_cast<size_t>(1)].Float());
+			}
+			return pts;
+		};
+		for (auto& part : doc["parts"].Items())
+		{
+			auto type = part["type"].Str();
+			TablePreviewShape shape;
+			if (type == "wall")
+			{
+				shape.Kind = TablePreviewShape::Polygon;
+				shape.Points = points(part["points"]);
+				shape.Filled = part["closed"].Bool(false);
+				shape.Width = part["thickness"].Float(0.3f);
+				shape.Color = PackColor(color(part["color"], walls));
+			}
+			else if (type == "slingshot")
+			{
+				shape.Kind = TablePreviewShape::Polygon;
+				shape.Points = points(part["points"]);
+				shape.Filled = true;
+				shape.Color = PackColor(color(part["color"], accent));
+			}
+			else if (type == "post" || type == "bumper")
+			{
+				auto bumper = type == "bumper";
+				shape.Kind = TablePreviewShape::Circle;
+				shape.Points = {part["x"].Float(), part["y"].Float()};
+				shape.Radius = part["radius"].Float(bumper ? 0.55f : 0.2f);
+				shape.Filled = true;
+				shape.Color = PackColor(bumper ? color(part["capColor"], accent2) : rubber);
+			}
+			else if (type == "flipper")
+			{
+				auto left = part["side"].Str("left") != "right";
+				auto x = part["x"].Float(), y = part["y"].Float(), length = part["length"].Float(2.0f);
+				auto a = part["angle"].Float(30.0f) * 3.14159265f / 180.0f;
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = {x, y, x + (left ? 1 : -1) * std::cos(a) * length, y + std::sin(a) * length};
+				shape.Width = 0.45f;
+				shape.Color = PackColor(color(part["color"], {0.95f, 0.95f, 0.97f}));
+			}
+			else if (type == "plunger")
+			{
+				auto x = part["x"].Float(), y = part["y"].Float();
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = {x, y, x, y + 1.0f};
+				shape.Width = part["width"].Float(0.7f) * 0.6f;
+				shape.Color = PackColor(color(part["color"], accent));
+			}
+			else
+				continue;
+			if (!shape.Points.empty())
+				out.Shapes.push_back(shape);
+		}
+	}
+}
+
 DatFile* customtable::Load(const std::string& path, std::string& error)
 {
 	Unload();
@@ -1673,6 +1762,7 @@ bool customtable::ReadInfo(const std::string& path, CustomTableEntry& entry)
 	entry.Path = path;
 	entry.Name = doc["name"].Str("Untitled table");
 	entry.Author = doc["author"].Str();
+	BuildPreview(doc, entry.Preview);
 	return true;
 }
 
