@@ -70,6 +70,9 @@ lighting ones above (`SpaceCadetPinball/modernfx.cpp`):
   backglass art on the left and an enlarged score panel on the right over a blurred copy of the table.
 - **CRT / arcade filter** (off by default): scanlines and a soft vignette.
 - **Smooth play**: draws at the monitor's refresh rate and runs physics at 240 updates per second.
+- **HD detail**: how sharp the HD pack is drawn. *Auto* picks the smallest scale that fills your screen
+  (3x on a 1080p screen, 4x on 4K); 2x is the lightest, *Original art* turns HD off. The pack on disk
+  stays the same, it is scaled down when loaded. Changing it restarts the game.
 
 ## The HD pack tool
 

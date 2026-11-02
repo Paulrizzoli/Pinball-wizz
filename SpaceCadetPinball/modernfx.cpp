@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "modernfx.h"
 
+#include "hdgfx.h"
 #include "ledfx.h"
 #include "options.h"
 #include "pb.h"
@@ -540,6 +541,50 @@ void modernfx::RenderSettingsWindow()
 		ImGui::Checkbox("CRT / arcade filter", &opt.CrtFilter.V);
 		if (ImGui::Checkbox("Smooth play (match monitor refresh, 240 physics updates/s)", &opt.SmoothPlay.V))
 			winmain::UpdateFrameRate();
+
+		// HD detail: how sharp the HD pack is drawn. Lower is much lighter on laptops.
+		if (hdgfx::PackScale >= 2)
+		{
+			auto tableHeight = render::vscreen ? render::vscreen->Height : 416;
+			auto tableWidth = render::vscreen ? render::vscreen->Width : 600;
+			char autoLabel[48];
+			auto autoScale = hdgfx::AutoScale(hdgfx::PackScale, tableHeight);
+			snprintf(autoLabel, sizeof autoLabel, "Auto (%dx for this screen)", autoScale);
+			std::vector<std::string> labels{autoLabel, "Original art (fastest)"};
+			std::vector<int> values{0, 1};
+			for (int scale = 2; scale <= hdgfx::PackScale; scale++)
+			{
+				char label[48];
+				snprintf(label, sizeof label, "HD %dx (%d x %d)%s", scale, tableWidth * scale, tableHeight * scale,
+				         scale == 2 ? " - fast" : scale == hdgfx::PackScale ? " - sharpest" : "");
+				labels.emplace_back(label);
+				values.push_back(scale);
+			}
+			int current = 0;
+			for (size_t i = 0; i < values.size(); i++)
+				if (values[i] == opt.HdDetail.V)
+					current = static_cast<int>(i);
+
+			ImGui::SetNextItemWidth(280);
+			if (ImGui::BeginCombo("HD detail", labels[current].c_str()))
+			{
+				for (size_t i = 0; i < labels.size(); i++)
+				{
+					if (ImGui::Selectable(labels[i].c_str(), static_cast<int>(i) == current) &&
+						values[i] != opt.HdDetail.V)
+					{
+						opt.HdDetail.V = values[i];
+						// The pack is reloaded at the new size; this restarts the game.
+						winmain::Restart();
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::TextDisabled("Now drawn at %s. Changing it restarts the game.",
+			                    hdgfx::Active()
+				                    ? (std::to_string(hdgfx::Scale) + "x").c_str()
+				                    : "original size");
+		}
 
 		ImGui::Spacing();
 		if (ImGui::Button("Close", ImVec2(120, 0)))

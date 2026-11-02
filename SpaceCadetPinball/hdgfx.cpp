@@ -4,6 +4,9 @@
 #include "gdrv.h"
 #include "zdrv.h"
 #include "GroupData.h"
+#include "fullscrn.h"
+#include "options.h"
+#include "winmain.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -14,6 +17,7 @@
 #include "stb_image.h"
 
 int hdgfx::Scale = 1;
+int hdgfx::PackScale = 0;
 std::unordered_map<const gdrv_bitmap8*, gdrv_bitmap8*> hdgfx::BmpTwins;
 std::unordered_map<const zmap_header_type*, zmap_header_type*> hdgfx::ZMapTwins;
 std::vector<const void*> hdgfx::Targets;
@@ -65,6 +69,7 @@ namespace
 
 bool hdgfx::LoadPack(DatFile* table, const std::string& basePath, int resolution)
 {
+	PackScale = 0;
 	Unload();
 
 	if (resolution != 0)
@@ -88,7 +93,18 @@ bool hdgfx::LoadPack(DatFile* table, const std::string& basePath, int resolution
 		StatusText = "HD pack has an invalid scale";
 		return false;
 	}
-	Scale = scale;
+	PackScale = scale;
+
+	// Detail level: the pack is drawn at a lower scale when asked, which is much lighter on slower PCs.
+	auto detail = options::Options.HdDetail.V;
+	auto tableHeight = fullscrn::resolution_array[resolution].TableHeight;
+	auto wanted = detail <= 0 ? AutoScale(scale, tableHeight) : std::min(detail, scale);
+	if (wanted < 2)
+	{
+		StatusText = "HD pack found, detail set to original art";
+		return false;
+	}
+	Scale = wanted;
 
 	int loaded = 0;
 	for (auto group : table->Groups)
@@ -111,7 +127,8 @@ bool hdgfx::LoadPack(DatFile* table, const std::string& basePath, int resolution
 	}
 	SDL_ClearError();
 
-	StatusText = "HD pack " + std::to_string(Scale) + "x: " + std::to_string(loaded) + " images";
+	StatusText = "HD pack " + std::to_string(PackScale) + "x, drawn at " + std::to_string(Scale) + "x: " +
+		std::to_string(loaded) + " images";
 	printf("%s\n", StatusText.c_str());
 	return true;
 }
@@ -256,17 +273,23 @@ gdrv_bitmap8* hdgfx::LoadPng(const std::string& path, const gdrv_bitmap8& origin
 	if (!pixels)
 		return nullptr;
 
-	if (width != original.Width * Scale || height != original.Height * Scale)
+	if (width != original.Width * PackScale || height != original.Height * PackScale)
 	{
 		printf("HD: %s has wrong size %dx%d, expected %dx%d\n", path.c_str(), width, height,
-		       original.Width * Scale, original.Height * Scale);
+		       original.Width * PackScale, original.Height * PackScale);
 		stbi_image_free(pixels);
 		return nullptr;
 	}
 
-	auto twin = new gdrv_bitmap8(width, height, false);
+	auto twin = new gdrv_bitmap8(original.Width * Scale, original.Height * Scale, false);
 	twin->XPosition = original.XPosition * Scale;
 	twin->YPosition = original.YPosition * Scale;
+	if (Scale != PackScale)
+	{
+		Downscale(pixels, PackScale, *twin);
+		stbi_image_free(pixels);
+		return twin;
+	}
 	auto src = pixels;
 	auto dst = twin->BmpBufPtr1;
 	for (int i = 0; i < width * height; i++, src += 4)
@@ -280,4 +303,55 @@ gdrv_bitmap8* hdgfx::LoadPng(const std::string& path, const gdrv_bitmap8& origin
 
 	stbi_image_free(pixels);
 	return twin;
+}
+
+int hdgfx::AutoScale(int packScale, int tableHeight)
+{
+	// Smallest scale whose table height still covers most of the screen height: sharp, without drawing
+	// far more pixels than the screen can show.
+	SDL_DisplayMode mode{};
+	auto display = winmain::MainWindow ? SDL_GetWindowDisplayIndex(winmain::MainWindow) : 0;
+	if (SDL_GetDesktopDisplayMode(display < 0 ? 0 : display, &mode) != 0 || mode.h <= 0 || tableHeight <= 0)
+		return std::min(packScale, 2);
+	int scale = 2;
+	while (scale < packScale && tableHeight * scale < mode.h * 85 / 100)
+		scale++;
+	return scale;
+}
+
+void hdgfx::Downscale(const unsigned char* pixels, int packScale, gdrv_bitmap8& twin)
+{
+	// Area average from the pack scale down to Scale. A pixel is opaque when most of its area is.
+	auto srcW = twin.Width / Scale * packScale;
+	for (int y = 0; y < twin.Height; y++)
+	{
+		auto y0 = y * packScale / Scale, y1 = std::max(y0 + 1, (y + 1) * packScale / Scale);
+		for (int x = 0; x < twin.Width; x++)
+		{
+			auto x0 = x * packScale / Scale, x1 = std::max(x0 + 1, (x + 1) * packScale / Scale);
+			unsigned r = 0, g = 0, b = 0, opaque = 0, total = 0;
+			for (int sy = y0; sy < y1; sy++)
+			{
+				auto src = pixels + (static_cast<size_t>(sy) * srcW + x0) * 4;
+				for (int sx = x0; sx < x1; sx++, src += 4)
+				{
+					total++;
+					if (src[3] < 128)
+						continue;
+					opaque++;
+					r += src[0];
+					g += src[1];
+					b += src[2];
+				}
+			}
+			auto& dst = twin.BmpBufPtr1[twin.Stride * y + x];
+			if (opaque * 2 < total)
+				dst = ColorRgba{0};
+			else
+				dst = ColorRgba{
+					static_cast<uint8_t>(r / opaque), static_cast<uint8_t>(g / opaque),
+					static_cast<uint8_t>(b / opaque), 0xff
+				};
+		}
+	}
 }
