@@ -18,6 +18,9 @@ namespace minijson
 		explicit Value(bool b) : type(Type::Bool), boolean(b) { }
 		explicit Value(double n) : type(Type::Number), number(n) { }
 		explicit Value(const std::string& s) : type(Type::String), text(s) { }
+		explicit Value(const char* s) : type(Type::String), text(s) { }
+		explicit Value(int n) : type(Type::Number), number(n) { }
+		explicit Value(float n) : type(Type::Number), number(n) { }
 
 		static Value MakeArray() { Value v; v.type = Type::Array; return v; }
 		static Value MakeObject() { Value v; v.type = Type::Object; return v; }
@@ -49,6 +52,11 @@ namespace minijson
 		// Building values (used when saving a table).
 		void Push(const Value& v);
 		void Set(const std::string& key, const Value& v);
+
+		// Editing in place (used by the table editor). At(key) adds the key when missing.
+		Value& At(const std::string& key);
+		std::vector<Value>& MutableItems() { return items; }
+		void Remove(const std::string& key);
 
 		std::string Dump(int indent = 0) const;
 

@@ -12,6 +12,7 @@
 #include "hdgfx.h"
 #include "customtable.h"
 #include "tablepicker.h"
+#include "tableeditor.h"
 #include "updates.h"
 #include "Sound.h"
 #include "translations.h"
@@ -534,6 +535,10 @@ void winmain::RenderUi()
 
 			if (ImGui::MenuItem("Choose Table..."))
 				tablepicker::Show();
+			if (ImGui::MenuItem("Edit This Table", nullptr, false, customtable::Active))
+				tableeditor::Edit(customtable::Path);
+			if (ImGui::MenuItem("New Table"))
+				tableeditor::NewTable();
 			ImGui::Separator();
 			if (ImGui::MenuItem("Space Cadet", nullptr, !customtable::Active, !pb::DatFileName.empty()) &&
 				customtable::Active)
@@ -892,6 +897,7 @@ void winmain::RenderUi()
 	modernfx::RenderTitleButton();
 	modernfx::RenderSettingsWindow();
 	tablepicker::Render();
+	tableeditor::Render();
 	a_dialog();
 	high_score::RenderHighScoreDialog();
 	font_selection::RenderDialog();
