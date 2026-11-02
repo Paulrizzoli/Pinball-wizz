@@ -7,6 +7,7 @@
 #include "render.h"
 #include "timer.h"
 #include "TPinballTable.h"
+#include "ledfx.h"
 
 TLight::TLight(TPinballTable* table, int groupIndex) : TPinballComponent(table, groupIndex, true)
 {
@@ -14,6 +15,8 @@ TLight::TLight(TPinballTable* table, int groupIndex) : TPinballComponent(table, 
 	FlasherOnFlag = false;
 	UndoOverrideTimer = 0;
 	FlashTimer = 0;
+	if (RenderSprite)
+		ledfx::Register(RenderSprite, true);
 	Reset();
 	float* floatArr1 = loader::query_float_attribute(groupIndex, 0, 900);
 	FlashDelay[0] = *floatArr1;

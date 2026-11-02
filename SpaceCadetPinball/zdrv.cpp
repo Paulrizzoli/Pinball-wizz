@@ -92,6 +92,52 @@ void zdrv::paint(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOff, in
 	}
 }
 
+void zdrv::paint_alpha(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOff, int dstBmpYOff,
+                       zmap_header_type* dstZMap, int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp,
+                       int srcBmpXOff, int srcBmpYOff, zmap_header_type* srcZMap, int srcZMapXOff, int srcZMapYOff,
+                       uint8_t alpha)
+{
+	if (alpha == 255)
+	{
+		paint(width, height, dstBmp, dstBmpXOff, dstBmpYOff, dstZMap, dstZMapXOff, dstZMapYOff, srcBmp, srcBmpXOff,
+		      srcBmpYOff, srcZMap, srcZMapXOff, srcZMapYOff);
+		return;
+	}
+
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		paint_alpha(width * s, height * s, hdgfx::Twin(dstBmp), dstBmpXOff * s, dstBmpYOff * s,
+		            hdgfx::Twin(dstZMap), dstZMapXOff * s, dstZMapYOff * s, hdgfx::Twin(srcBmp), srcBmpXOff * s,
+		            srcBmpYOff * s, hdgfx::Twin(srcZMap), srcZMapXOff * s, srcZMapYOff * s, alpha);
+	}
+
+	assertm(srcBmp->BitmapType != BitmapTypes::Spliced, "Wrong bmp type");
+
+	const unsigned a = alpha, ia = 255 - alpha;
+	for (int y = 0; y < height; y++)
+	{
+		auto srcPtr = &srcBmp->BmpBufPtr1[srcBmp->Stride * (srcBmpYOff + y) + srcBmpXOff];
+		auto dstPtr = &dstBmp->BmpBufPtr1[dstBmp->Stride * (dstBmpYOff + y) + dstBmpXOff];
+		auto srcPtrZ = &srcZMap->ZPtr1[srcZMap->Stride * (srcZMapYOff + y) + srcZMapXOff];
+		auto dstPtrZ = &dstZMap->ZPtr1[dstZMap->Stride * (dstZMapYOff + y) + dstZMapXOff];
+		for (int x = 0; x < width; x++)
+		{
+			if (dstPtrZ[x] >= srcPtrZ[x])
+			{
+				auto src = srcPtr[x], dst = dstPtr[x];
+				dstPtr[x] = ColorRgba{
+					static_cast<uint8_t>((src.GetRed() * a + dst.GetRed() * ia + 127) / 255),
+					static_cast<uint8_t>((src.GetGreen() * a + dst.GetGreen() * ia + 127) / 255),
+					static_cast<uint8_t>((src.GetBlue() * a + dst.GetBlue() * ia + 127) / 255),
+					255
+				};
+				dstPtrZ[x] = srcPtrZ[x];
+			}
+		}
+	}
+}
+
 void zdrv::paint_flat(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOff, int dstBmpYOff,
                       zmap_header_type* zMap, int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp, int srcBmpXOff,
                       int srcBmpYOff, uint16_t depth)

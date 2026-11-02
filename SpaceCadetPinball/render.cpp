@@ -11,6 +11,7 @@
 #include "DebugOverlay.h"
 #include "proj.h"
 #include "hdgfx.h"
+#include "ledfx.h"
 
 std::vector<render_sprite*> render::sprite_list, render::ball_list;
 zmap_header_type* render::background_zmap;
@@ -73,6 +74,8 @@ render_sprite::render_sprite(VisualTypes visualType, gdrv_bitmap8* bmp, zmap_hea
 
 render_sprite::~render_sprite()
 {
+	if (IsLight)
+		ledfx::Unregister(this);
 	render::RemoveSprite(*this);
 	delete OccludedSprites;
 }
@@ -81,6 +84,9 @@ void render_sprite::set(gdrv_bitmap8* bmp, zmap_header_type* zMap, int xPos, int
 {
 	if (Bmp == bmp && ZMap == zMap && BmpRect.XPosition == xPos && BmpRect.YPosition == yPos)
 		return;
+
+	if (IsLight)
+		ledfx::SpriteChanged(*this, bmp, zMap, xPos, yPos);
 
 	Bmp = bmp;
 	ZMap = zMap;
@@ -140,6 +146,7 @@ void render::uninit()
 		delete ball_list[0];
 	for (auto& ballBmp : ball_bitmap)
 		delete ballBmp;
+	ledfx::Uninit();
 	hdgfx::Unload();
 	DebugOverlay::UnInit();
 }
@@ -152,6 +159,7 @@ void render::recreate_screen_texture()
 
 void render::update()
 {
+	ledfx::Update();
 	unpaint_balls();
 
 	// Clip dirty sprites with vScreen, clear clipping (dirty) rectangles
@@ -240,7 +248,35 @@ void render::repaint(const render_sprite& sprite)
 
 	for (auto refSprite : *sprite.OccludedSprites)
 	{
-		if (!refSprite->DeleteFlag && refSprite->Bmp)
+		if (refSprite->DeleteFlag)
+			continue;
+
+		if (refSprite->IsLight && ledfx::Enabled())
+		{
+			// LED mode: lights cross-fade between their previous and current bitmaps, in LED colours.
+			// A light that shows nothing gets a dimmed "off" lamp instead.
+			auto fade = ledfx::Ease(refSprite->Fade);
+			auto offBmp = ledfx::OffBitmap(*refSprite);
+			if (refSprite->Fade < 1.0f)
+			{
+				if (refSprite->PrevBmp)
+					paint_layer(*refSprite, ledfx::LedBitmap(refSprite->PrevBmp, refSprite->PrevX, refSprite->PrevY),
+					            refSprite->PrevZMap, refSprite->PrevX, refSprite->PrevY, sprite.DirtyRect,
+					            1.0f - fade);
+				else if (offBmp)
+					paint_layer(*refSprite, offBmp, refSprite->OffZMap, refSprite->OffX, refSprite->OffY,
+					            sprite.DirtyRect, 1.0f - fade);
+			}
+			if (refSprite->Bmp)
+				paint_layer(*refSprite, ledfx::LedBitmap(refSprite->Bmp, refSprite->BmpRect.XPosition,
+				                                         refSprite->BmpRect.YPosition),
+				            refSprite->ZMap, refSprite->BmpRect.XPosition, refSprite->BmpRect.YPosition,
+				            sprite.DirtyRect, fade);
+			else if (offBmp)
+				paint_layer(*refSprite, offBmp, refSprite->OffZMap, refSprite->OffX, refSprite->OffY,
+				            sprite.DirtyRect, fade);
+		}
+		else if (refSprite->Bmp)
 		{
 			if (maths::rectangle_clip(refSprite->BmpRect, sprite.DirtyRect, &clipRect))
 				zdrv::paint(
@@ -260,6 +296,59 @@ void render::repaint(const render_sprite& sprite)
 					clipRect.YPosition + refSprite->ZMapOffestX - refSprite->BmpRect.YPosition);
 		}
 	}
+}
+
+void render::paint_layer(const render_sprite& refSprite, gdrv_bitmap8* bmp, zmap_header_type* zMap, int xPos,
+                         int yPos, const rectangle_type& dirtyRect, float opacity)
+{
+	auto alpha = static_cast<int>(opacity * 255.0f + 0.5f);
+	if (alpha <= 0 || !bmp || !zMap)
+		return;
+
+	rectangle_type bmpRect{xPos, yPos, bmp->Width, bmp->Height}, clipRect{};
+	if (!maths::rectangle_clip(bmpRect, dirtyRect, &clipRect))
+		return;
+
+	zdrv::paint_alpha(
+		clipRect.Width,
+		clipRect.Height,
+		vscreen,
+		clipRect.XPosition,
+		clipRect.YPosition,
+		zscreen,
+		clipRect.XPosition,
+		clipRect.YPosition,
+		bmp,
+		clipRect.XPosition - xPos,
+		clipRect.YPosition - yPos,
+		zMap,
+		clipRect.XPosition + refSprite.ZMapOffestY - xPos,
+		clipRect.YPosition + refSprite.ZMapOffestX - yPos,
+		static_cast<uint8_t>(std::min(alpha, 255)));
+}
+
+gdrv_bitmap8* render::GetTableBitmap()
+{
+	for (auto sprite : sprite_list)
+	{
+		if (sprite->VisualType == VisualTypes::Background && sprite->Bmp)
+			return sprite->Bmp;
+	}
+	return nullptr;
+}
+
+void render::GetBoardTransform(float& x, float& y, float& scaleX, float& scaleY, SDL_Rect& clip)
+{
+	// Maps 1x vScreen coordinates of the table area to window coordinates, matching PresentVScreen.
+	scaleX = static_cast<float>(DestinationRect.w) / vscreen->Width;
+	scaleY = static_cast<float>(DestinationRect.h) / vscreen->Height;
+	x = DestinationRect.x + offset_x * fullscrn::ScaleX;
+	y = DestinationRect.y + offset_y * fullscrn::ScaleY;
+	auto tableWidth = pb::MainTable ? pb::MainTable->Width : vscreen->Width;
+	clip = SDL_Rect{
+		DestinationRect.x, DestinationRect.y,
+		static_cast<int>(DestinationRect.w * (static_cast<float>(tableWidth) / vscreen->Width)), DestinationRect.h
+	};
 }
 
 
@@ -529,6 +618,8 @@ void render::PresentVScreen()
 		SDL_RenderCopy(winmain::Renderer, screen->Texture, &srcSidebarRect, &dstSidebarRect);
 #endif
 	}
+
+	ledfx::DrawGlow();
 
 	if (options::Options.DebugOverlay)
 	{

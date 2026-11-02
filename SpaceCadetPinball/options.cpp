@@ -8,6 +8,7 @@
 #include "Sound.h"
 #include "winmain.h"
 #include "translations.h"
+#include "ledfx.h"
 
 constexpr int options::MaxUps, options::MaxFps, options::MinUps, options::MinFps, options::DefUps, options::DefFps;
 constexpr int options::MaxSoundChannels, options::MinSoundChannels, options::DefSoundChannels;
@@ -152,6 +153,9 @@ optionsStruct options::Options
 	{"FontFileName", ""},
 	{"Language", translations::GetCurrentLanguage()->ShortName},
 	{"Hide Cursor", false},
+	{"LED Lighting", true},
+	{"Light Glow", true},
+	{"Light Glow Strength", 1.0f},
 };
 
 void options::InitPrimary()
@@ -311,6 +315,13 @@ void options::toggle(Menu1 uIDCheckItem)
 	case Menu1::WindowIntegerScale:
 		Options.IntegerScaling ^= true;
 		fullscrn::window_size_changed();
+		break;
+	case Menu1::LedLighting:
+		Options.LedLighting ^= true;
+		ledfx::SettingsChanged();
+		break;
+	case Menu1::LightGlow:
+		Options.LightGlow ^= true;
 		break;
 	default:
 		break;
