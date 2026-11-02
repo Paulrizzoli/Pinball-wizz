@@ -1,0 +1,18 @@
+PINBALL WIZZ - PLAYING IN HD
+============================
+
+This download does not include any of the original game's files. You need your own copy of
+3D Pinball for Windows - Space Cadet (for example from an old Windows XP install).
+
+1. Copy these files from your Space Cadet folder into this folder:
+       PINBALL.DAT, FONT.DAT, all the SOUND*.WAV files, PINBALL.MID
+2. Double-click MakeHDPack.exe.
+   It reads your PINBALL.DAT and creates an "HD" folder with 4x sharper artwork.
+   This takes about a minute and only needs doing once.
+   (Optional, from a command prompt: MakeHDPack.exe --scale 2 for a lighter 2x pack.)
+3. Double-click SpaceCadetPinball.exe and play. Press F4 for fullscreen.
+
+To go back to the original look, rename or delete the HD folder.
+
+Tip: Options > Linear Filtering on gives the smoothest result when the window isn't an exact
+multiple of the HD size.

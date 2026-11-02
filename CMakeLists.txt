@@ -186,6 +186,9 @@ set(SOURCE_FILES
         SpaceCadetPinball/imstb_truetype.h
         SpaceCadetPinball/DebugOverlay.cpp
         SpaceCadetPinball/DebugOverlay.h
+        SpaceCadetPinball/hdgfx.cpp
+        SpaceCadetPinball/hdgfx.h
+        SpaceCadetPinball/stb_image.h
         )
 
 # On Windows, include resource file with the icon

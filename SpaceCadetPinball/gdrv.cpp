@@ -8,6 +8,7 @@
 #include "winmain.h"
 #include "TTextBox.h"
 #include "fullscrn.h"
+#include "hdgfx.h"
 
 ColorRgba gdrv::current_palette[256]{};
 
@@ -82,6 +83,7 @@ gdrv_bitmap8::gdrv_bitmap8(const dat8BitBmpHeader& header)
 
 gdrv_bitmap8::~gdrv_bitmap8()
 {
+	hdgfx::Forget(this);
 	if (BitmapType != BitmapTypes::None)
 	{
 		delete[] BmpBufPtr1;
@@ -213,6 +215,12 @@ void gdrv::fill_bitmap(gdrv_bitmap8* bmp, int width, int height, int xOff, int y
 
 void gdrv::fill_bitmap(gdrv_bitmap8* bmp, int width, int height, int xOff, int yOff, ColorRgba fillColor)
 {
+	if (hdgfx::IsTarget(bmp))
+	{
+		auto s = hdgfx::Scale;
+		fill_bitmap(hdgfx::Twin(bmp), width * s, height * s, xOff * s, yOff * s, fillColor);
+	}
+
 	auto bmpPtr = &bmp->BmpBufPtr1[bmp->Width * yOff + xOff];
 	for (; height > 0; --height)
 	{
@@ -225,6 +233,13 @@ void gdrv::fill_bitmap(gdrv_bitmap8* bmp, int width, int height, int xOff, int y
 void gdrv::copy_bitmap(gdrv_bitmap8* dstBmp, int width, int height, int xOff, int yOff, gdrv_bitmap8* srcBmp,
                        int srcXOff, int srcYOff)
 {
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		copy_bitmap(hdgfx::Twin(dstBmp), width * s, height * s, xOff * s, yOff * s, hdgfx::Twin(srcBmp),
+		            srcXOff * s, srcYOff * s);
+	}
+
 	auto srcPtr = &srcBmp->BmpBufPtr1[srcBmp->Stride * srcYOff + srcXOff];
 	auto dstPtr = &dstBmp->BmpBufPtr1[dstBmp->Stride * yOff + xOff];
 
@@ -239,6 +254,13 @@ void gdrv::copy_bitmap(gdrv_bitmap8* dstBmp, int width, int height, int xOff, in
 void gdrv::copy_bitmap_w_transparency(gdrv_bitmap8* dstBmp, int width, int height, int xOff, int yOff,
                                       gdrv_bitmap8* srcBmp, int srcXOff, int srcYOff)
 {
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		copy_bitmap_w_transparency(hdgfx::Twin(dstBmp), width * s, height * s, xOff * s, yOff * s,
+		                           hdgfx::Twin(srcBmp), srcXOff * s, srcYOff * s);
+	}
+
 	auto srcPtr = &srcBmp->BmpBufPtr1[srcBmp->Stride * srcYOff + srcXOff];
 	auto dstPtr = &dstBmp->BmpBufPtr1[dstBmp->Stride * yOff + xOff];
 

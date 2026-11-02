@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "pb.h"
+#include "hdgfx.h"
 
 
 #include "control.h"
@@ -82,6 +83,8 @@ int pb::init()
 		proj::init(projMat, projD, projCenterX, projCenterY, zMin, zScaler);
 	}
 
+	// HD pack must be loaded before render::init registers the buffers it mirrors.
+	hdgfx::LoadPack(record_table, BasePath, fullscrn::GetResolution());
 	render::init(nullptr, resInfo->TableWidth, resInfo->TableHeight);
 	gdrv::copy_bitmap(
 		render::vscreen,

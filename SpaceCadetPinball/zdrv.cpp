@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "zdrv.h"
 #include "winmain.h"
+#include "hdgfx.h"
 
 
 zmap_header_type::zmap_header_type(int width, int height, int stride)
@@ -15,6 +16,7 @@ zmap_header_type::zmap_header_type(int width, int height, int stride)
 
 zmap_header_type::~zmap_header_type()
 {
+	hdgfx::Forget(this);
 	delete[] ZPtr1;
 	if (Texture)
 		SDL_DestroyTexture(Texture);
@@ -31,6 +33,12 @@ int zmap_header_type::pad(int width)
 
 void zdrv::fill(zmap_header_type* zmap, int width, int height, int xOff, int yOff, uint16_t fillWord)
 {
+	if (hdgfx::IsTarget(zmap))
+	{
+		auto s = hdgfx::Scale;
+		fill(hdgfx::Twin(zmap), width * s, height * s, xOff * s, yOff * s, fillWord);
+	}
+
 	auto dstPtr = &zmap->ZPtr1[zmap->Stride * yOff + xOff];
 	for (int y = height; y > 0; --y)
 	{
@@ -47,6 +55,14 @@ void zdrv::paint(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOff, in
                  int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp, int srcBmpXOff, int srcBmpYOff,
                  zmap_header_type* srcZMap, int srcZMapXOff, int srcZMapYOff)
 {
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		paint(width * s, height * s, hdgfx::Twin(dstBmp), dstBmpXOff * s, dstBmpYOff * s,
+		      hdgfx::Twin(dstZMap), dstZMapXOff * s, dstZMapYOff * s, hdgfx::Twin(srcBmp), srcBmpXOff * s,
+		      srcBmpYOff * s, hdgfx::Twin(srcZMap), srcZMapXOff * s, srcZMapYOff * s);
+	}
+
 	assertm(srcBmp->BitmapType != BitmapTypes::Spliced, "Wrong bmp type");
 
 	auto srcPtr = &srcBmp->BmpBufPtr1[srcBmp->Stride * srcBmpYOff + srcBmpXOff];
@@ -80,6 +96,14 @@ void zdrv::paint_flat(int width, int height, gdrv_bitmap8* dstBmp, int dstBmpXOf
                       zmap_header_type* zMap, int dstZMapXOff, int dstZMapYOff, gdrv_bitmap8* srcBmp, int srcBmpXOff,
                       int srcBmpYOff, uint16_t depth)
 {
+	if (hdgfx::IsTarget(dstBmp))
+	{
+		auto s = hdgfx::Scale;
+		paint_flat(width * s, height * s, hdgfx::Twin(dstBmp), dstBmpXOff * s, dstBmpYOff * s,
+		           hdgfx::Twin(zMap), dstZMapXOff * s, dstZMapYOff * s, hdgfx::Twin(srcBmp), srcBmpXOff * s,
+		           srcBmpYOff * s, depth);
+	}
+
 	assertm(srcBmp->BitmapType != BitmapTypes::Spliced, "Wrong bmp type");
 
 	auto dstPtr = &dstBmp->BmpBufPtr1[dstBmp->Stride * dstBmpYOff + dstBmpXOff];

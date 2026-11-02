@@ -10,6 +10,7 @@
 #include "winmain.h"
 #include "DebugOverlay.h"
 #include "proj.h"
+#include "hdgfx.h"
 
 std::vector<render_sprite*> render::sprite_list, render::ball_list;
 zmap_header_type* render::background_zmap;
@@ -103,6 +104,8 @@ void render::init(gdrv_bitmap8* bmp, int width, int height)
 {
 	vscreen = new gdrv_bitmap8(width, height, false);
 	zscreen = new zmap_header_type(width, height, width);
+	hdgfx::RegisterTarget(vscreen);
+	hdgfx::RegisterTarget(zscreen);
 	zdrv::fill(zscreen, zscreen->Width, zscreen->Height, 0, 0, 0xFFFF);
 	vscreen_rect.YPosition = 0;
 	vscreen_rect.XPosition = 0;
@@ -111,7 +114,10 @@ void render::init(gdrv_bitmap8* bmp, int width, int height)
 	vscreen->YPosition = 0;
 	vscreen->XPosition = 0;
 	for (auto& ballBmp : ball_bitmap)
+	{
 		ballBmp = new gdrv_bitmap8(64, 64, false);
+		hdgfx::RegisterTarget(ballBmp);
+	}
 
 	background_bitmap = bmp;
 	if (bmp)
@@ -134,12 +140,14 @@ void render::uninit()
 		delete ball_list[0];
 	for (auto& ballBmp : ball_bitmap)
 		delete ballBmp;
+	hdgfx::Unload();
 	DebugOverlay::UnInit();
 }
 
 void render::recreate_screen_texture()
 {
-	vscreen->CreateTexture(options::Options.LinearFiltering ? "linear" : "nearest", SDL_TEXTUREACCESS_STREAMING);
+	auto screen = hdgfx::Active() ? hdgfx::Twin(vscreen) : vscreen;
+	screen->CreateTexture(options::Options.LinearFiltering ? "linear" : "nearest", SDL_TEXTUREACCESS_STREAMING);
 }
 
 void render::update()
@@ -454,11 +462,14 @@ void render::SpriteViewer(bool* show)
 
 void render::PresentVScreen()
 {
-	vscreen->BlitToTexture();
+	// In HD mode the HD twin is presented; coordinates below stay in 1x vScreen units and are scaled.
+	auto screen = hdgfx::Active() ? hdgfx::Twin(vscreen) : vscreen;
+	auto hdScale = hdgfx::Active() ? hdgfx::Scale : 1;
+	screen->BlitToTexture();
 
 	if (offset_x == 0 && offset_y == 0)
 	{
-		SDL_RenderCopy(winmain::Renderer, vscreen->Texture, nullptr, &DestinationRect);
+		SDL_RenderCopy(winmain::Renderer, screen->Texture, nullptr, &DestinationRect);
 	}
 	else
 	{
@@ -467,12 +478,12 @@ void render::PresentVScreen()
 		auto srcBoardRect = SDL_Rect
 		{
 			0, 0,
-			srcSeparationX, vscreen->Height
+			srcSeparationX * hdScale, vscreen->Height * hdScale
 		};
 		auto srcSidebarRect = SDL_Rect
 		{
-			srcSeparationX, 0,
-			vscreen->Width - srcSeparationX, vscreen->Height
+			srcSeparationX * hdScale, 0,
+			(vscreen->Width - srcSeparationX) * hdScale, vscreen->Height * hdScale
 		};
 
 #if SDL_VERSION_ATLEAST(2, 0, 10)
@@ -490,8 +501,8 @@ void render::PresentVScreen()
 			DestinationRect.w - dstSeparationX, static_cast<float>(DestinationRect.h)
 		};
 
-		SDL_RenderCopyF(winmain::Renderer, vscreen->Texture, &srcBoardRect, &dstBoardRect);
-		SDL_RenderCopyF(winmain::Renderer, vscreen->Texture, &srcSidebarRect, &dstSidebarRect);
+		SDL_RenderCopyF(winmain::Renderer, screen->Texture, &srcBoardRect, &dstBoardRect);
+		SDL_RenderCopyF(winmain::Renderer, screen->Texture, &srcSidebarRect, &dstSidebarRect);
 #else
 		// SDL_RenderCopy cannot express sub pixel offset.
 		// Vscreen shift is required for that.
@@ -514,8 +525,8 @@ void render::PresentVScreen()
 			DestinationRect.w - dstSeparationX, DestinationRect.h
 		};
 
-		SDL_RenderCopy(winmain::Renderer, vscreen->Texture, &srcBoardRect, &dstBoardRect);
-		SDL_RenderCopy(winmain::Renderer, vscreen->Texture, &srcSidebarRect, &dstSidebarRect);
+		SDL_RenderCopy(winmain::Renderer, screen->Texture, &srcBoardRect, &dstBoardRect);
+		SDL_RenderCopy(winmain::Renderer, screen->Texture, &srcSidebarRect, &dstSidebarRect);
 #endif
 	}
 
