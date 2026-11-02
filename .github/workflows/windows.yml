@@ -22,6 +22,19 @@ jobs:
       SDL2_MIXER_VERSION: 2.8.0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history, to find the last commit that changed the HD art
+
+      - name: Stamp build and art versions
+        shell: pwsh
+        run: |
+          # The updater compares these with the player's install: "build" decides whether to download,
+          # "art" (the last commit that touched tools/hdpack) decides whether to rebuild the HD pack.
+          $build = git rev-parse HEAD
+          $art = git log -1 --format=%H -- tools/hdpack
+          Set-Content tools/hdpack/art_version.txt $art -NoNewline
+          Set-Content version.txt "build=$build`nart=$art`n" -NoNewline
+          Get-Content version.txt
 
       - name: Download SDL2 and SDL2_mixer
         shell: pwsh
@@ -70,7 +83,14 @@ jobs:
             --exclude-module torch --exclude-module torchvision --exclude-module spandrel `
             --add-data "tools/hdpack/realesrgan_x4_anime6b.onnx;." `
             --add-data "tools/hdpack/Inter-ExtraBoldItalic.otf;." `
+            --add-data "tools/hdpack/art_version.txt;." `
             tools/hdpack/make_hd_pack.py
+
+      - name: Build updater
+        shell: pwsh
+        run: |
+          ./hdpack-venv/Scripts/pyinstaller --onefile --console --name "Update Pinball Wizz" `
+            tools/updater/update_pinball_wizz.py
 
       - name: Package
         shell: pwsh
@@ -78,7 +98,7 @@ jobs:
           $pkg = "package/PinballWizz"
           New-Item -ItemType Directory -Force $pkg | Out-Null
           Copy-Item bin/Release/SpaceCadetPinball.exe, bin/Release/SDL2.dll, bin/Release/SDL2_mixer.dll $pkg
-          Copy-Item dist/MakeHDPack.exe $pkg
+          Copy-Item dist/MakeHDPack.exe, "dist/Update Pinball Wizz.exe", version.txt $pkg
           Copy-Item Doc/HOW-TO-PLAY-IN-HD.txt $pkg
           Copy-Item LICENSE, LICENSE.SpaceCadetPinball $pkg
           Copy-Item tools/hdpack/MODEL_LICENSE.txt $pkg
@@ -98,9 +118,11 @@ jobs:
         run: |
           Compress-Archive -Path package/PinballWizz -DestinationPath PinballWizz-Windows-x64.zip -Force
           $notes = "Newest build from main ($($env:GITHUB_SHA.Substring(0,7))). " +
-                   "Unzip, copy in your own game files, run MakeHDPack.exe, then SpaceCadetPinball.exe. " +
+                   "New install: unzip, copy in your own game files, run MakeHDPack.exe, then SpaceCadetPinball.exe. " +
+                   "Already installed: run Update Pinball Wizz.exe (or Help > Check for Updates in the game). " +
                    "See HOW-TO-PLAY-IN-HD.txt inside the zip."
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
-          gh release create latest PinballWizz-Windows-x64.zip --target $env:GITHUB_SHA `
+          # version.txt is attached on its own too, so the updater can check for news without the big zip.
+          gh release create latest PinballWizz-Windows-x64.zip version.txt --target $env:GITHUB_SHA `
             --title "Pinball Wizz (latest build)" --notes $notes --latest

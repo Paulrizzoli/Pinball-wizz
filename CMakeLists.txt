@@ -193,6 +193,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/modernfx.cpp
         SpaceCadetPinball/modernfx.h
         SpaceCadetPinball/stb_image.h
+        SpaceCadetPinball/updates.cpp
+        SpaceCadetPinball/updates.h
         )
 
 # On Windows, include resource file with the icon

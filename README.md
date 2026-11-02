@@ -24,8 +24,12 @@ This repository and its downloads contain no Microsoft game data. Players use th
 
 Delete or rename the `HD` folder to go back to the original graphics.
 
-To update, copy the new `SpaceCadetPinball.exe` and `MakeHDPack.exe` over the old ones, delete the
-`HD` folder and run `MakeHDPack.exe` again.
+To update, run `Update Pinball Wizz.exe` (or Help > Check for Updates in the game). It checks
+`version.txt` on the latest release, downloads the zip only when the build changed, replaces the
+program files (never the player's game files, `HD` folder or settings), and reruns `MakeHDPack.exe`
+only when the HD art changed: the release stamps `art=` with the last commit that touched
+`tools/hdpack`, and `HD/pack.ini` records the `art=` it was made with. Source:
+`tools/updater/update_pinball_wizz.py` and `SpaceCadetPinball/updates.cpp`.
 
 ## How the HD renderer works
 
@@ -105,5 +109,6 @@ python tools/hdpack/make_hd_pack.py path/to/PINBALL.DAT --scale 4
 ## Building
 
 Windows builds run in GitHub Actions (`.github/workflows/windows.yml`), which downloads SDL2 and
-SDL2_mixer, builds the game with MSVC and packages `MakeHDPack.exe` with PyInstaller.
+SDL2_mixer, builds the game with MSVC and packages `MakeHDPack.exe` and `Update Pinball Wizz.exe`
+with PyInstaller.
 On Linux: install SDL2 and SDL2_mixer dev packages, then `cmake -B build && cmake --build build`.

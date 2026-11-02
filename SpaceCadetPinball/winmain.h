@@ -85,6 +85,7 @@ public:
 	static void new_game();
 	static void pause(bool toggle = true);
 	static void Restart();
+	static void CheckForUpdates();
 	static void UpdateFrameRate();
 	static void HandleGameBinding(GameBindings binding, bool shortcut);
 private:
