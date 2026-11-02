@@ -61,7 +61,7 @@ jobs:
           ./hdpack-venv/Scripts/pyinstaller --onefile --console --name MakeHDPack `
             --exclude-module torch --exclude-module torchvision --exclude-module spandrel `
             --add-data "tools/hdpack/realesrgan_x4_anime6b.onnx;." `
-            --add-data "tools/hdpack/realesrgan_x4plus.onnx;." `
+            --add-data "tools/hdpack/Inter-ExtraBoldItalic.otf;." `
             tools/hdpack/make_hd_pack.py
 
       - name: Package
@@ -74,6 +74,7 @@ jobs:
           Copy-Item Doc/HOW-TO-PLAY-IN-HD.txt $pkg
           Copy-Item LICENSE, LICENSE.SpaceCadetPinball $pkg
           Copy-Item tools/hdpack/MODEL_LICENSE.txt $pkg
+          Copy-Item tools/hdpack/OFL.txt $pkg/FONT_LICENSE.txt
           Get-ChildItem $pkg | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4

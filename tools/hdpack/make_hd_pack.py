@@ -7,33 +7,36 @@ Usage:
     make_hd_pack.py [path\\to\\PINBALL.DAT] [--scale 2|3|4] [--out folder]
 """
 import argparse
+import colorsys
 import os
 import struct
 import sys
 import time
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 PACK_VERSION = 1
 CONTEXT = 8  # pixels of surrounding table art fed to the upscaler, so sprite edges blend in
 
-# Small red lettering that the crisp anime model breaks apart. These areas are redone with the general
-# model, then the letters are rebuilt as solid, smooth shapes and blended in.
-# Boxes are (left, top, right, bottom) in 1x pixels of the named bitmap, with the mask thresholds to
-# use, and only apply when the bitmap has the expected size (the Space Cadet table).
-TEXT_REGIONS = {
+# Small red logo lettering is too few pixels for any upscaler to rebuild cleanly, so it is redrawn:
+# the old letters are painted over with the apron colour and the same words are drawn fresh in a
+# vector font, fitted to exactly where the old letters were. Boxes are (left, top, right, bottom) in
+# 1x pixels of the named bitmap, and only apply when the bitmap has the expected size (the Space Cadet
+# table). Everything is drawn on the player's PC; nothing from the original art is shipped.
+LOGO_TEXT = {
     "table": {
         "size": (365, 470),
-        "boxes": [
-            ((12, 391, 93, 405), 12, 30),   # CINEMATRONICS (stops before the red trim)
-            ((283, 391, 322, 405), 8, 24),  # MAXIS (stops before the plunger frame)
+        "labels": [
+            ("CINEMATRONICS", (12, 391, 93, 405)),  # stops before the red trim on the right
+            ("MAXIS", (283, 391, 322, 405)),         # stops before the plunger frame
         ],
     },
 }
-TEXT_MASK_BLUR = 1.2  # 4x pixels; joins the dithered strokes into solid letters
-TEXT_BRIGHTEN = 1.35
-TEXT_FEATHER = 3  # 1x pixels of soft blend around each text box
+LOGO_FONT = "Inter-ExtraBoldItalic.otf"  # SIL Open Font License, see OFL.txt
+LOGO_SATURATION = 0.85  # the original red is dull; push it towards the red trim on the table
+LOGO_BRIGHTNESS = 0.75
+LOGO_ERASE_FEATHER = 6  # 4x pixels
 
 
 def resource_path(name):
@@ -105,10 +108,6 @@ class Upscaler:
         opts = ort.SessionOptions()
         self.session = ort.InferenceSession(model_path, opts, providers=["CPUExecutionProvider"])
 
-    @staticmethod
-    def available(model_path):
-        return os.path.isfile(model_path)
-
     def __call__(self, rgb):
         x = rgb.astype(np.float32).transpose(2, 0, 1)[None] / 255.0
         y = self.session.run(None, {"input": x})[0][0]
@@ -136,42 +135,49 @@ def upscale_with_context(up, rgba, x, y, table_rgb):
     return big[CONTEXT * 4:(CONTEXT + h) * 4, CONTEXT * 4:(CONTEXT + w) * 4]
 
 
-def redo_text(text_up, rgba, rgb4, regions):
-    """Re-upscale small lettering with the text-friendly model and feather it into the 4x image."""
+def logo_colour(pixels):
+    """The letters' own hue, made cleaner and brighter."""
+    r, g, b = np.percentile(pixels, 90, axis=0) / 255
+    h, _, _ = colorsys.rgb_to_hsv(r, g, b)
+    return np.array(colorsys.hsv_to_rgb(h, LOGO_SATURATION, LOGO_BRIGHTNESS), np.float32) * 255
+
+
+def render_text(text, font_path, width, height):
+    """Text as an alpha mask stretched to exactly width x height, rendered large then scaled down."""
+    font = ImageFont.truetype(font_path, 240)
+    left, top, right, bottom = font.getbbox(text)
+    canvas = Image.new("L", (right - left + 40, bottom - top + 40), 0)
+    ImageDraw.Draw(canvas).text((20 - left, 20 - top), text, font=font, fill=255)
+    canvas = canvas.crop(canvas.getbbox()).resize((width, height), Image.LANCZOS)
+    return np.asarray(canvas, np.float32)[..., None] / 255
+
+
+def relabel(rgba, rgb4, spec, font_path):
+    """Paint over the old logo letters and draw them again in a clean font."""
     h, w = rgba.shape[:2]
-    if (w, h) != regions["size"]:
+    if (w, h) != spec["size"]:
         return rgb4
     out = rgb4.astype(np.float32)
-    for (left, top, right, bottom), lo, hi in regions["boxes"]:
-        # Upscale with some context around the box, then keep only the box plus feather.
-        m = CONTEXT
-        x0, y0, x1, y1 = max(left - m, 0), max(top - m, 0), min(right + m, w), min(bottom + m, h)
-        patch = text_up(rgba[y0:y1, x0:x1, :3]).astype(np.float32)
-        # Letters = how much redder than green/blue a pixel is. Blur that and threshold it with a smooth
-        # step to get clean anti-aliased letter shapes, then paint them in the letters' own (brightened)
-        # colour.
-        red = patch[..., 0] - np.maximum(patch[..., 1], patch[..., 2])
-        blurred = np.asarray(Image.fromarray(np.clip(red * 4, 0, 255).astype(np.uint8))
-                             .filter(ImageFilter.GaussianBlur(TEXT_MASK_BLUR)), np.float32) / 4
-        a = np.clip((blurred - lo) / (hi - lo), 0, 1)
-        a = a * a * (3 - 2 * a)
-        # Only rebuild letters inside the box itself, never neighbouring red trim.
-        inside = np.zeros_like(a)
-        inside[(top - y0) * 4:(bottom - y0) * 4, (left - x0) * 4:(right - x0) * 4] = 1
-        inside = np.asarray(Image.fromarray((inside * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2)),
-                            np.float32) / 255
-        a = (a * inside)[..., None]
-        letters = (red > 25) & (inside > 0.5)
-        if letters.any():
-            colour = np.percentile(patch[letters], 90, axis=0) * TEXT_BRIGHTEN
-            patch = patch * (1 - a) + colour * a
-        mask = np.zeros(((y1 - y0) * 4, (x1 - x0) * 4), np.float32)
-        f = TEXT_FEATHER
-        mask[(top - y0 - f) * 4:(bottom - y0 + f) * 4, (left - x0 - f) * 4:(right - x0 + f) * 4] = 1
-        mask = np.asarray(Image.fromarray((mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(f * 2)),
-                          np.float32)[..., None] / 255
+    for text, (left, top, right, bottom) in spec["labels"]:
+        src = rgba[top:bottom, left:right, :3].astype(np.float32)
+        red = src[..., 0] - np.maximum(src[..., 1], src[..., 2])
+        letters, apron = red > 18, red <= 8
+        if not letters.any() or not apron.any():
+            continue
+        ys, xs = np.nonzero(letters)
+        x0, x1, y0, y1 = left + xs.min(), left + xs.max() + 1, top + ys.min(), top + ys.max() + 1
+
+        # 1. Erase: fill the box with the apron colour, softly feathered at the edges.
+        mask = np.zeros((h * 4, w * 4), np.float32)
+        mask[top * 4:bottom * 4, left * 4:right * 4] = 1
+        mask = np.asarray(Image.fromarray((mask * 255).astype(np.uint8))
+                          .filter(ImageFilter.GaussianBlur(LOGO_ERASE_FEATHER)), np.float32)[..., None] / 255
+        out = out * (1 - mask) + np.median(src[apron], axis=0) * mask
+
+        # 2. Draw the word where the old letters were.
+        alpha = render_text(text, font_path, (x1 - x0) * 4, (y1 - y0) * 4)
         region = out[y0 * 4:y1 * 4, x0 * 4:x1 * 4]
-        out[y0 * 4:y1 * 4, x0 * 4:x1 * 4] = region * (1 - mask) + patch * mask
+        out[y0 * 4:y1 * 4, x0 * 4:x1 * 4] = region * (1 - alpha) + logo_colour(src[letters]) * alpha
     return (out + 0.5).clip(0, 255).astype(np.uint8)
 
 
@@ -200,7 +206,7 @@ def main():
     parser.add_argument("--scale", type=int, default=4, choices=[2, 3, 4], help="HD scale, default 4")
     parser.add_argument("--out", help="output folder (default: HD folder next to the .dat file)")
     parser.add_argument("--model", default=resource_path("realesrgan_x4_anime6b.onnx"))
-    parser.add_argument("--text-model", default=resource_path("realesrgan_x4plus.onnx"))
+    parser.add_argument("--font", default=resource_path(LOGO_FONT), help="font for the redrawn logo text")
     parser.add_argument("--no-pause", action="store_true", help="don't wait for Enter at the end")
     args = parser.parse_args()
 
@@ -220,16 +226,16 @@ def main():
     items = [(gid, x, y, rgba, group_name(groups[gid])) for gid, x, y, rgba in bitmaps(groups, pal)]
     table = build_table_canvas(items)
     up = Upscaler(args.model)
-    text_up = Upscaler(args.text_model) if Upscaler.available(args.text_model) else None
-    if not text_up:
-        print("Text model not found, small lettering will use the main model.")
+    font = args.font if os.path.isfile(args.font) else None
+    if not font:
+        print("Logo font not found, logo lettering will keep the upscaled original.")
 
     start = time.time()
     for n, (gid, x, y, rgba, name) in enumerate(items, 1):
         h, w = rgba.shape[:2]
         rgb4 = upscale_with_context(up, rgba, x, y, table)
-        if text_up and name in TEXT_REGIONS:
-            rgb4 = redo_text(text_up, rgba, rgb4, TEXT_REGIONS[name])
+        if font and name in LOGO_TEXT:
+            rgb4 = relabel(rgba, rgb4, LOGO_TEXT[name], font)
         img = Image.fromarray(rgb4)
         s = args.scale
         if s != 4:
