@@ -571,6 +571,11 @@ namespace
 		bool AddLane(const Value& part, std::string& error);
 		bool AddTarget(const Value& part, std::string& error);
 		bool AddLight(const Value& part, std::string& error);
+		bool AddDropTarget(const Value& part, std::string& error);
+		bool AddKickout(const Value& part, std::string& error);
+		bool AddSpinner(const Value& part, std::string& error);
+		bool AddRamp(const Value& part, std::string& error);
+		bool AddGate(const Value& part, std::string& error);
 		bool ReadRules(std::string& error);
 		std::map<std::string, int> Ids; // part id -> group
 
@@ -1204,6 +1209,308 @@ namespace
 		return true;
 	}
 
+	bool Builder::AddDropTarget(const Value& part, std::string& error)
+	{
+		// A drop target: drops into the playfield when hit (the ball then rolls over it) and pops back up when
+		// its group is complete. Faces along "angle" like a stand-up target.
+		auto x = part["x"].Float(), y = part["y"].Float();
+		auto width = part["width"].Float(0.8f);
+		auto angle = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+		auto color = Color(part["color"], Accent);
+		P2 face{std::cos(angle), std::sin(angle)};
+		P2 along{-face.Y, face.X};
+		const float depth = 0.2f;
+		auto corner = [&](float s, float t) { return P2{x + along.X * s + face.X * t, y + along.Y * s + face.Y * t}; };
+		std::vector<P2> box{
+			corner(-width / 2, -depth / 2), corner(width / 2, -depth / 2), corner(width / 2, depth / 2),
+			corner(-width / 2, depth / 2)
+		};
+		box = Outward(box);
+
+		GroupBuild g;
+		g.ShortValue(200);
+		g.Shorts({100, 1, 300, MatRubber, 400, Kicker(0.6f, part["strength"].Float(1.5f))});
+		g.Floats(WallFloats(box));
+		g.Floats({407.0f, part["popup"].Float(1.0f)});
+
+		std::vector<ArtVec> corners;
+		for (auto& p : box)
+		{
+			corners.push_back({p.X, p.Y, 0});
+			corners.push_back({p.X, p.Y, 0.75f});
+		}
+		auto canvas = NewCanvas(ScreenBounds(corners));
+		auto body = Plastic(color);
+		auto top = Plastic(color.Mix({1, 1, 1}, 0.3f));
+		canvas.Prism(To3D(Grow(box, -0.01f)), 0, 0.7f, ArtSolid(top), ArtSolid(body));
+		// A white stripe across the face.
+		std::vector<P2> stripe{corner(-width / 2 + 0.06f, depth / 2), corner(width / 2 - 0.06f, depth / 2),
+		                       corner(width / 2 - 0.06f, depth / 2 + 0.005f), corner(-width / 2 + 0.06f, depth / 2 + 0.005f)};
+		auto white = Plastic({0.95f, 0.95f, 0.98f});
+		canvas.Prism(To3D(Outward(stripe)), 0.42f, 0.5f, ArtSolid(white), ArtSolid(white));
+		gdrv_bitmap8* bmp;
+		zmap_header_type* zMap;
+		ResolveSprite(canvas, bmp, zMap);
+		g.Sprite(bmp, zMap);
+		auto group = Commit(Dat, g);
+		Objects.push_back({1006, group});
+		customtable::Scores[group] = part["score"].Int(500);
+		customtable::Bonus[group] = part["bonus"].Int(1000);
+		return true;
+	}
+
+	bool Builder::AddKickout(const Value& part, std::string& error)
+	{
+		// A hole that catches the ball, holds it for a moment and kicks it out along "angle".
+		auto x = part["x"].Float(), y = part["y"].Float();
+		auto r = part["radius"].Float(0.45f);
+		auto angle = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+		auto strength = part["strength"].Float(1.0f);
+
+		GroupBuild kick;
+		kick.ShortValue(400);
+		kick.Floats({401.0f, 1e9f, 402.0f, 14.0f * strength, 403.0f, 10.0f, 404.0f, std::cos(angle), std::sin(angle),
+		             0.0f, 405.0f, 0.12f});
+		auto kicker = Commit(Dat, kick);
+
+		GroupBuild g;
+		g.ShortValue(200);
+		g.Shorts({400, kicker});
+		g.Floats({600.0f, 1.0f, x, y, r, -1.0f});
+		g.Floats({305.0f, 18.0f});
+		g.Floats({306.0f, 0.3f});
+		g.Floats({408.0f, 0.1f, 0.1f, 0.12f, 0.12f});
+		auto group = Commit(Dat, g);
+		Objects.push_back({1012, group});
+		customtable::Scores[group] = part["score"].Int(2500);
+		customtable::Bonus[group] = part["bonus"].Int(1000);
+
+		// Art: a dark hole (painted on the playfield) with a metal rim and a little back wall.
+		auto rim = Metal(PostColor);
+		auto back = Plastic(Color(part["color"], Accent));
+		Scenery.push_back([=](Art3D& art)
+		{
+			std::vector<ArtVec> ring;
+			const int n = 28;
+			for (int i = 0; i <= n; i++)
+			{
+				// Half ring at the back of the hole, opposite the kick direction.
+				auto a = angle + 3.14159265f * 0.5f + 3.14159265f * i / n;
+				auto a2 = angle + 3.14159265f * 0.5f + 3.14159265f * (i + 1) / n;
+				if (i == n)
+					break;
+				P2 p0{x + std::cos(a) * r * 1.05f, y + std::sin(a) * r * 1.05f};
+				P2 p1{x + std::cos(a2) * r * 1.05f, y + std::sin(a2) * r * 1.05f};
+				art.Prism(To3D(Outward(ThickLine({p0, p1}, 0.06f))), 0, 0.35f, ArtSolid(back), ArtSolid(back));
+			}
+			for (int i = 0; i < n; i++)
+			{
+				auto a = 2 * 3.14159265f * i / n, a2 = 2 * 3.14159265f * (i + 1) / n;
+				P2 p0{x + std::cos(a) * r, y + std::sin(a) * r}, p1{x + std::cos(a2) * r, y + std::sin(a2) * r};
+				art.Prism(To3D(Outward(ThickLine({p0, p1}, 0.035f))), 0, 0.05f, ArtSolid(rim), ArtSolid(rim));
+			}
+		});
+		return true;
+	}
+
+	bool Builder::AddSpinner(const Value& part, std::string& error)
+	{
+		// A flag on a wire across a lane: the ball spins it as it goes through, and every turn scores.
+		auto x = part["x"].Float(), y = part["y"].Float();
+		auto width = part["width"].Float(1.0f);
+		auto angle = part["angle"].Float(0.0f) * 3.14159265f / 180.0f; // direction of the wire
+		auto color = Color(part["color"], Accent2);
+		P2 d{std::cos(angle), std::sin(angle)};
+		P2 n{-d.Y, d.X};
+		P2 a{x - d.X * width / 2, y - d.Y * width / 2}, b{x + d.X * width / 2, y + d.Y * width / 2};
+		const float axis = 0.62f, half = 0.32f;
+		const int frames = 8;
+
+		StatefulPart sp;
+		sp.Main.ShortValue(200);
+		sp.Main.Shorts({100, frames});
+		sp.Main.Floats({600.0f, 2.0f, a.X, a.Y, b.X, b.Y, -1.0f});
+		sp.Main.Floats({1200.0f, 50000.0f});
+		sp.Main.Floats({1201.0f, 5.0f});
+		sp.Main.Floats({1202.0f, part["friction"].Float(0.75f)});
+
+		std::vector<ArtVec> corners{{a.X + n.X * half, a.Y + n.Y * half, 0}, {b.X - n.X * half, b.Y - n.Y * half, 0},
+		                            {a.X - n.X * half, a.Y - n.Y * half, axis + half}, {b.X + n.X * half, b.Y + n.Y * half, axis + half}};
+		auto bounds = ScreenBounds(corners);
+		auto plate = Metal(color.Mix({1, 1, 1}, 0.15f));
+		auto plateBack = Metal(color.Scaled(0.7f));
+		for (int f = 0; f < frames; f++)
+		{
+			auto t = 3.14159265f * f / frames;
+			auto c = std::cos(t), s2 = std::sin(t);
+			// The plate hangs from the wire; at frame 0 it hangs straight down.
+			auto px = [&](P2 p, float k) { return ArtVec{p.X + n.X * s2 * half * k, p.Y + n.Y * s2 * half * k, axis - c * half * k}; };
+			auto canvas = NewCanvas(bounds);
+			auto ia = P2{a.X + d.X * 0.06f, a.Y + d.Y * 0.06f}, ib = P2{b.X - d.X * 0.06f, b.Y - d.Y * 0.06f};
+			canvas.Quad(px(ia, 0), px(ib, 0), px(ib, 1), px(ia, 1), [=](const ArtVec& pos, const ArtVec& nv)
+			{
+				return ArtShade(nv.Z >= 0 ? plate : plateBack, pos, nv);
+			});
+			gdrv_bitmap8* bmp;
+			zmap_header_type* zMap;
+			ResolveSprite(canvas, bmp, zMap);
+			if (f == 0)
+				sp.Main.Sprite(bmp, zMap);
+			else
+				sp.States.push_back({bmp, zMap});
+		}
+		auto group = CommitStateful(Dat, sp);
+		Objects.push_back({1018, group});
+		customtable::Scores[group] = part["score"].Int(100);
+		customtable::Bonus[group] = part["bonus"].Int(0);
+
+		// Posts and wire on the table.
+		auto post = Metal(PostColor);
+		Scenery.push_back([=](Art3D& art)
+		{
+			art.Cylinder(a.X, a.Y, 0.06f, 0, axis + 0.08f, ArtSolid(post), ArtSolid(post), 12);
+			art.Cylinder(b.X, b.Y, 0.06f, 0, axis + 0.08f, ArtSolid(post), ArtSolid(post), 12);
+		});
+		return true;
+	}
+
+	bool Builder::AddRamp(const Value& part, std::string& error)
+	{
+		// A ramp drawn as a path: a raised lane with rails on both sides. The ball counts a ramp shot when
+		// it leaves the far end. (The ball stays at playfield height; the ramp floor is just above it.)
+		auto pts = ReadPoints(part["points"]);
+		if (pts.size() < 2)
+		{
+			error = "A ramp needs at least 2 points (its path)";
+			return false;
+		}
+		auto width = part["width"].Float(1.1f);
+		auto color = Color(part["color"], Accent2);
+		auto railColor = Color(part["railColor"], PostColor);
+
+		// Rails: the two sides of the path.
+		auto outline = ThickLine(pts, width * 0.5f);
+		auto count = pts.size();
+		std::vector<P2> left(outline.begin(), outline.begin() + count);
+		std::vector<P2> right(outline.begin() + count, outline.end());
+		std::reverse(right.begin(), right.end());
+		for (auto side : {&left, &right})
+		{
+			GroupBuild g;
+			g.ShortValue(200);
+			g.Shorts({300, MatWall});
+			g.Floats(WallFloats(Outward(ThickLine(*side, 0.06f))));
+			Objects.push_back({1000, Commit(Dat, g)});
+		}
+
+		// A one-way flap across the far end lets the ball out but stops balls rolling in backwards.
+		auto exitA = left.back(), exitB = right.back();
+		P2 dir{pts[count - 1].X - pts[count - 2].X, pts[count - 1].Y - pts[count - 2].Y};
+		auto dl = std::sqrt(dir.X * dir.X + dir.Y * dir.Y);
+		if (dl > 0)
+			dir = {dir.X / dl, dir.Y / dl};
+		{
+			// The gate passes balls coming from the right-hand side of its first-to-second point line.
+			P2 ga = exitA, gb = exitB;
+			if ((gb.X - ga.X) * -dir.Y - (gb.Y - ga.Y) * -dir.X < 0)
+				std::swap(ga, gb);
+			GroupBuild gate;
+			gate.ShortValue(200);
+			gate.Shorts({300, MatWall});
+			gate.Floats({600.0f, 2.0f, ga.X, ga.Y, gb.X, gb.Y, -1.0f});
+			Objects.push_back({1016, Commit(Dat, gate)});
+		}
+
+		// Exit switch just before the far end.
+		P2 inA{exitA.X - dir.X * 0.4f, exitA.Y - dir.Y * 0.4f}, inB{exitB.X - dir.X * 0.4f, exitB.Y - dir.Y * 0.4f};
+		GroupBuild sw;
+		sw.ShortValue(200);
+		sw.Floats(WallFloats(Outward(ThickLine({inA, inB}, 0.02f))));
+		auto group = Commit(Dat, sw);
+		Objects.push_back({1024, group});
+		customtable::Scores[group] = part["score"].Int(5000);
+		customtable::Bonus[group] = part["bonus"].Int(2000);
+
+		auto floor = Plastic(color.Scaled(0.3f));
+		floor.Ambient = 0.6f;
+		auto chevron = Plastic(color);
+		chevron.Glow = 0.5f;
+		auto rail = Metal(railColor);
+		Scenery.push_back([=](Art3D& art)
+		{
+			// Floor in segments, with chevrons pointing up the ramp.
+			for (size_t i = 0; i + 1 < count; i++)
+			{
+				art.Quad({left[i].X, left[i].Y, 0.02f}, {left[i + 1].X, left[i + 1].Y, 0.02f},
+				         {right[i + 1].X, right[i + 1].Y, 0.02f}, {right[i].X, right[i].Y, 0.02f}, ArtSolid(floor));
+				P2 d{pts[i + 1].X - pts[i].X, pts[i + 1].Y - pts[i].Y};
+				auto len = std::sqrt(d.X * d.X + d.Y * d.Y);
+				if (len < 0.01f)
+					continue;
+				d = {d.X / len, d.Y / len};
+				P2 n{-d.Y, d.X};
+				auto half = width * 0.3f;
+				for (float t = 0.6f; t + 0.3f < len; t += 1.2f)
+				{
+					P2 tip{pts[i].X + d.X * t, pts[i].Y + d.Y * t};
+					for (int s = -1; s <= 1; s += 2)
+					{
+						P2 wing{tip.X - d.X * half * 0.8f + n.X * half * s, tip.Y - d.Y * half * 0.8f + n.Y * half * s};
+						auto strip = Outward(ThickLine({tip, wing}, 0.07f));
+						auto v = To3D(strip);
+						for (auto& q : v)
+							q.Z = 0.03f;
+						art.Quad(v[0], v[1], v[2], v[3], ArtSolid(chevron));
+					}
+				}
+			}
+			for (auto side : {&left, &right})
+			{
+				for (size_t i = 0; i + 1 < side->size(); i++)
+					art.Prism(To3D(Outward(ThickLine({(*side)[i], (*side)[i + 1]}, 0.05f))), 0.3f, 0.42f,
+					          ArtSolid(rail), ArtSolid(rail));
+				for (auto& p : *side)
+				{
+					art.Cylinder(p.X, p.Y, 0.05f, 0.3f, 0.42f, ArtSolid(rail), ArtSolid(rail), 12);
+					art.Cylinder(p.X, p.Y, 0.03f, 0, 0.3f, ArtSolid(rail), ArtSolid(rail), 8);
+				}
+			}
+			// The exit flap.
+			art.Prism(To3D(Outward(ThickLine({exitA, exitB}, 0.03f))), 0.25f, 0.42f, ArtSolid(rail), ArtSolid(rail));
+		});
+		return true;
+	}
+
+	bool Builder::AddGate(const Value& part, std::string& error)
+	{
+		// A one-way gate: a flap the ball can push through from one side only (the right-hand side when
+		// looking from the first point to the second).
+		auto pts = ReadPoints(part["points"]);
+		if (pts.size() != 2)
+		{
+			error = "A gate needs 2 points";
+			return false;
+		}
+		auto a = pts[0], b = pts[1];
+		GroupBuild g;
+		g.ShortValue(200);
+		g.Shorts({300, MatWall});
+		g.Floats({600.0f, 2.0f, a.X, a.Y, b.X, b.Y, -1.0f});
+		auto group = Commit(Dat, g);
+		Objects.push_back({1016, group});
+		if (part["score"].Int() > 0)
+			customtable::Scores[group] = part["score"].Int();
+
+		auto metal = Metal(Color(part["color"], PostColor));
+		Scenery.push_back([=](Art3D& art)
+		{
+			art.Prism(To3D(Outward(ThickLine({a, b}, 0.03f))), 0.25f, 0.5f, ArtSolid(metal), ArtSolid(metal));
+			art.Cylinder(a.X, a.Y, 0.06f, 0, 0.55f, ArtSolid(metal), ArtSolid(metal), 10);
+			art.Cylinder(b.X, b.Y, 0.06f, 0, 0.55f, ArtSolid(metal), ArtSolid(metal), 10);
+		});
+		return true;
+	}
+
 	bool Builder::ReadRules(std::string& error)
 	{
 		auto& rules = customtable::Rules;
@@ -1225,6 +1532,7 @@ namespace
 			return true;
 		};
 
+		std::vector<std::string> missionNames;
 		for (auto& g : doc["groups"].Items())
 		{
 			CustomRuleGroup group;
@@ -1251,12 +1559,26 @@ namespace
 			group.Bonus = g["bonus"].Int(0);
 			group.Award = g["award"].Str("none");
 			group.Message = g["message"].Str();
-			if (group.Award != "none" && group.Award != "multiplier" && group.Award != "extraBall")
+			group.IsMission = g["mission"].Bool(false);
+			group.Time = std::max(0.0f, g["time"].Float(0));
+			group.Hint = g["hint"].Str();
+			if (group.Award != "none" && group.Award != "multiplier" && group.Award != "extraBall" &&
+				group.Award != "multiball" && group.Award != "startMission")
 			{
-				error = "group " + group.Name + ": award must be none, multiplier or extraBall";
+				error = "group " + group.Name + ": award must be none, multiplier, extraBall, multiball or startMission";
 				return false;
 			}
 			rules.Groups.push_back(group);
+			missionNames.push_back(g["startsMission"].Str());
+		}
+		// Missions are named by group name; link them once every group is known.
+		for (size_t i = 0; i < rules.Groups.size(); i++)
+		{
+			if (rules.Groups[i].Award != "startMission")
+				continue;
+			for (size_t j = 0; j < rules.Groups.size(); j++)
+				if (j != i && rules.Groups[j].IsMission && rules.Groups[j].Name == missionNames[i])
+					rules.Groups[i].StartsMission = static_cast<int>(j);
 		}
 		rules.BallSave = std::max(0.0f, std::min(60.0f, doc["ballSave"].Float(0)));
 		if (!lookup(doc["extraBallLight"], rules.ExtraBallLight, "extraBallLight"))
@@ -1304,11 +1626,61 @@ namespace
 		{
 			tex.VerticalGradient(0, 0, static_cast<float>(tw), static_cast<float>(th), Playfield, Playfield2);
 
-			// Faint grid.
-			for (float gx = -W / 2 + 1; gx < W / 2; gx += 1)
-				tex.Line(u(gx), 0, u(gx), static_cast<float>(th), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
-			for (float gy = -L / 2 + 1; gy < L / 2; gy += 1)
-				tex.Line(0, v(gy), static_cast<float>(tw), v(gy), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
+			auto decor = Doc["playfield"]["decor"].Str("grid");
+			if (decor == "space")
+			{
+				// Deep space: nebula clouds, a ringed planet and a field of stars (all from a fixed seed, so
+				// the table looks the same every time).
+				uint32_t seed = 20261102u;
+				auto rnd = [&seed]()
+				{
+					seed = seed * 1664525u + 1013904223u;
+					return (seed >> 8) / 16777216.0f;
+				};
+				tex.Glow(u(-3.5f), v(-4.0f), 7.0f * TexPerUnit, Accent, 0.22f);
+				tex.Glow(u(4.0f), v(3.5f), 6.0f * TexPerUnit, Accent2, 0.18f);
+				tex.Glow(u(-1.0f), v(9.0f), 5.0f * TexPerUnit, Accent.Mix(Accent2, 0.5f), 0.12f);
+				for (int i = 0; i < static_cast<int>(W * L * 1.6f); i++)
+				{
+					auto sx = rnd() * W - W / 2, sy = rnd() * L - L / 2;
+					auto big = rnd();
+					auto r = (big > 0.97f ? 0.07f : big > 0.85f ? 0.045f : 0.025f) * TexPerUnit;
+					auto tint = rnd();
+					ArtColor c = tint < 0.15f ? Accent2.Mix({1, 1, 1}, 0.6f) : tint < 0.25f ? Accent.Mix({1, 1, 1}, 0.6f)
+						: ArtColor{0.95f, 0.95f, 1.0f};
+					tex.Circle(u(sx), v(sy), r, c, 0.35f + 0.65f * rnd());
+					if (big > 0.97f)
+						tex.Glow(u(sx), v(sy), r * 5, c, 0.25f);
+				}
+				// Orbit rings around the middle of the table.
+				auto ring = [&](float cx, float cy, float rx, float ry, float tilt, ArtColor c, float alpha, float width)
+				{
+					const int n = 120;
+					for (int i = 0; i < n; i++)
+					{
+						auto a0 = 2 * 3.14159265f * i / n, a1 = 2 * 3.14159265f * (i + 1) / n;
+						auto px = [&](float a) { return cx + std::cos(a) * rx * std::cos(tilt) - std::sin(a) * ry * std::sin(tilt); };
+						auto py = [&](float a) { return cy + std::cos(a) * rx * std::sin(tilt) + std::sin(a) * ry * std::cos(tilt); };
+						tex.Line(u(px(a0)), v(py(a0)), u(px(a1)), v(py(a1)), width * TexPerUnit, c, alpha);
+					}
+				};
+				auto pcx = Doc["playfield"]["planetX"].Float(0.0f), pcy = Doc["playfield"]["planetY"].Float(1.0f);
+				ring(pcx, pcy, 5.2f, 1.8f, -0.35f, Accent2, 0.35f, 0.05f);
+				ring(pcx, pcy, 6.4f, 2.3f, -0.35f, Accent, 0.22f, 0.03f);
+				auto planet = Playfield.Mix(Accent2, 0.35f);
+				tex.Glow(u(pcx), v(pcy), 2.6f * TexPerUnit, Accent2, 0.3f);
+				tex.Circle(u(pcx), v(pcy), 1.5f * TexPerUnit, planet.Scaled(0.75f));
+				tex.Circle(u(pcx - 0.25f), v(pcy - 0.3f), 1.15f * TexPerUnit, planet, 0.8f);
+				tex.Circle(u(pcx - 0.5f), v(pcy - 0.6f), 0.55f * TexPerUnit, planet.Mix({1, 1, 1}, 0.25f), 0.5f);
+			}
+			else if (decor == "grid")
+			{
+				// Faint grid.
+				for (float gx = -W / 2 + 1; gx < W / 2; gx += 1)
+					tex.Line(u(gx), 0, u(gx), static_cast<float>(th), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
+				for (float gy = -L / 2 + 1; gy < L / 2; gy += 1)
+					tex.Line(0, v(gy), static_cast<float>(tw), v(gy), TexPerUnit * 0.03f, {1, 1, 1}, 0.05f);
+			}
 
 			// Halos under bumpers, and rings around the bumper group.
 			float cx = 0, cy = 0;
@@ -1331,6 +1703,28 @@ namespace
 				               6.4f * TexPerUnit, TexPerUnit * 0.08f, Accent2, 3.2f * TexPerUnit, 0.45f);
 				tex.StrokeRect(u(cx) - 3.6f * TexPerUnit, v(cy) - 3.6f * TexPerUnit, 7.2f * TexPerUnit,
 				               7.2f * TexPerUnit, TexPerUnit * 0.03f, Accent2, 3.6f * TexPerUnit, 0.35f);
+			}
+		}
+
+		// Kickout holes and drop target slots are cut into the playfield.
+		for (auto& part : Doc["parts"].Items())
+		{
+			auto type = part["type"].Str();
+			auto px = part["x"].Float(), py = part["y"].Float();
+			if (type == "kickout")
+			{
+				auto r = part["radius"].Float(0.45f);
+				tex.Circle(u(px), v(py), r * 1.12f * TexPerUnit, Color(part["color"], Accent), 0.8f);
+				tex.Circle(u(px), v(py), r * TexPerUnit, {0.02f, 0.02f, 0.03f});
+				tex.Glow(u(px), v(py), r * 0.8f * TexPerUnit, {0, 0, 0}, 0.6f);
+			}
+			else if (type == "drop")
+			{
+				auto width = part["width"].Float(0.8f);
+				auto a = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+				P2 along{-std::sin(a), std::cos(a)};
+				tex.Line(u(px - along.X * width / 2), v(py - along.Y * width / 2), u(px + along.X * width / 2),
+				         v(py + along.Y * width / 2), 0.26f * TexPerUnit, {0.03f, 0.03f, 0.04f});
 			}
 		}
 
@@ -1790,6 +2184,16 @@ namespace
 				ok = AddTarget(part, error);
 			else if (type == "light")
 				ok = AddLight(part, error);
+			else if (type == "drop")
+				ok = AddDropTarget(part, error);
+			else if (type == "kickout")
+				ok = AddKickout(part, error);
+			else if (type == "spinner")
+				ok = AddSpinner(part, error);
+			else if (type == "ramp")
+				ok = AddRamp(part, error);
+			else if (type == "gate")
+				ok = AddGate(part, error);
 			else
 				printf("Custom table: skipping unknown part type \"%s\"\n", type.c_str());
 
@@ -1971,6 +2375,70 @@ void customtable::BuildPreview(const Value& doc, TablePreview& out)
 				shape.Radius = part["radius"].Float(0.35f);
 				shape.Filled = true;
 				shape.Color = PackColor(color(part["color"], accent).Mix(playfield, 0.4f));
+			}
+			else if (type == "drop")
+			{
+				auto x = part["x"].Float(), y = part["y"].Float(), w = part["width"].Float(0.8f) / 2;
+				auto a = part["angle"].Float(90.0f) * 3.14159265f / 180.0f;
+				float fx = std::cos(a), fy = std::sin(a), ax = -fy, ay = fx, d = 0.12f;
+				shape.Kind = TablePreviewShape::Polygon;
+				shape.Points = {x - ax * w - fx * d, y - ay * w - fy * d, x + ax * w - fx * d, y + ay * w - fy * d,
+				                x + ax * w + fx * d, y + ay * w + fy * d, x - ax * w + fx * d, y - ay * w + fy * d};
+				shape.Filled = true;
+				shape.Color = PackColor(color(part["color"], accent).Mix({1, 1, 1}, 0.2f));
+			}
+			else if (type == "kickout")
+			{
+				shape.Kind = TablePreviewShape::Circle;
+				shape.Points = {part["x"].Float(), part["y"].Float()};
+				shape.Radius = part["radius"].Float(0.45f);
+				shape.Filled = true;
+				shape.Color = PackColor({0.05f, 0.05f, 0.07f});
+				// A rim, so the dark hole shows on dark playfields.
+				TablePreviewShape rim = shape;
+				rim.Radius *= 1.2f;
+				rim.Color = PackColor(color(part["color"], accent));
+				out.Shapes.push_back(rim);
+			}
+			else if (type == "spinner")
+			{
+				auto x = part["x"].Float(), y = part["y"].Float(), w = part["width"].Float(1.0f) / 2;
+				auto a = part["angle"].Float(0.0f) * 3.14159265f / 180.0f;
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = {x - std::cos(a) * w, y - std::sin(a) * w, x + std::cos(a) * w, y + std::sin(a) * w};
+				shape.Width = 0.14f;
+				shape.Color = PackColor(color(part["color"], accent2));
+			}
+			else if (type == "gate")
+			{
+				shape.Kind = TablePreviewShape::Line;
+				shape.Points = points(part["points"]);
+				shape.Width = 0.08f;
+				shape.Color = PackColor({0.85f, 0.85f, 0.6f});
+				if (shape.Points.size() == 4)
+				{
+					// An arrow showing the way balls pass: from the right-hand side to the left-hand side.
+					auto& q = shape.Points;
+					float mx = (q[0] + q[2]) / 2, my = (q[1] + q[3]) / 2, dx = q[2] - q[0], dy = q[3] - q[1];
+					auto len = std::sqrt(dx * dx + dy * dy);
+					if (len > 0.01f)
+					{
+						float tx = dy / len, ty = -dx / len; // direction of travel
+						TablePreviewShape arrow = shape;
+						arrow.Width = 0.06f;
+						arrow.Points = {mx - tx * 0.5f, my - ty * 0.5f, mx + tx * 0.3f, my + ty * 0.3f,
+						                mx + tx * 0.05f - ty * 0.2f, my + ty * 0.05f + tx * 0.2f, mx + tx * 0.3f,
+						                my + ty * 0.3f, mx + tx * 0.05f + ty * 0.2f, my + ty * 0.05f - tx * 0.2f};
+						out.Shapes.push_back(arrow);
+					}
+				}
+			}
+			else if (type == "ramp")
+			{
+				shape.Kind = TablePreviewShape::Polygon;
+				shape.Points = points(part["points"]);
+				shape.Width = part["width"].Float(1.1f);
+				shape.Color = (PackColor(color(part["color"], accent2)) & 0x00FFFFFFu) | (0x70u << 24);
 			}
 			else if (type == "drain")
 			{

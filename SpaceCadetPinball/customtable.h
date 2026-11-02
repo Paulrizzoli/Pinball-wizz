@@ -52,8 +52,12 @@ struct CustomRuleGroup
 	int Hits = 0; // 0: hit every part once; otherwise this many hits on any of the parts
 	int Score = 5000;
 	int Bonus = 0;
-	std::string Award; // none, multiplier, extraBall
+	std::string Award; // none, multiplier, extraBall, multiball, startMission
 	std::string Message;
+	int StartsMission = -1; // award startMission: the group it starts
+	bool IsMission = false; // only counts after another group starts it
+	float Time = 0;         // missions: seconds to finish it (0 = until the ball drains)
+	std::string Hint;       // missions: what to shoot, shown when it starts
 };
 
 struct CustomRules

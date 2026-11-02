@@ -3,6 +3,7 @@
 
 #include "control.h"
 #include "fullscrn.h"
+#include "modernfx.h"
 #include "loader.h"
 #include "pb.h"
 #include "render.h"
@@ -165,7 +166,13 @@ void TTextBox::DrawImGui()
 	rect.w = Width;
 	rect.h = Height;
 
-	rect = fullscrn::GetScreenRectFromPinballRect(rect);
+	// In the widescreen layout the message boxes are shown enlarged beside the table.
+	float fontScale;
+	if (!modernfx::MapPanelRect(rect, fontScale))
+	{
+		rect = fullscrn::GetScreenRectFromPinballRect(rect);
+		fontScale = fullscrn::GetScreenToPinballRatio();
+	}
 
 	ImGui::SetNextWindowPos(ImVec2(static_cast<float>(rect.x), static_cast<float>(rect.y)));
 	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(rect.w), static_cast<float>(rect.h)));
@@ -174,7 +181,7 @@ void TTextBox::DrawImGui()
 	snprintf(windowName, sizeof(windowName), "TTextBox_%p", static_cast<void*>(this));
 	if (ImGui::Begin(windowName, nullptr, window_flags))
 	{
-		ImGui::SetWindowFontScale(fullscrn::GetScreenToPinballRatio());
+		ImGui::SetWindowFontScale(fontScale);
 
 		// ToDo: centered text in FT
 		ImGui::PushStyleColor(ImGuiCol_Text, pb::TextBoxColor);

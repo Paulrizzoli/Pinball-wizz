@@ -110,7 +110,10 @@ namespace
 	float TableW() { return Doc["playfield"]["width"].Float(16.0f); }
 	float TableL() { return Doc["playfield"]["length"].Float(29.0f); }
 
-	bool HasPoints(const std::string& type) { return type == "wall" || type == "slingshot" || type == "lane"; }
+	bool HasPoints(const std::string& type)
+	{
+		return type == "wall" || type == "slingshot" || type == "lane" || type == "ramp" || type == "gate";
+	}
 
 	float SnapValue(float v)
 	{
@@ -489,8 +492,8 @@ namespace
 		outer.Push(Point(7.6f, 14.5f));
 		add({{"type", Value("wall")}, {"id", Value("outer wall")}, {"points", outer}});
 		add({{"type", Value("wall")}, {"id", Value("plunger lane wall")}, {"points", points({{6.6f, 14.5f}, {6.6f, -6}})}});
-		add({{"type", Value("wall")}, {"id", Value("left guide")}, {"points", points({{-7.6f, 7.5f}, {-3.55f, 11.55f}})}});
-		add({{"type", Value("wall")}, {"id", Value("right guide")}, {"points", points({{6.6f, 7.5f}, {2.55f, 11.55f}})}});
+		add({{"type", Value("wall")}, {"id", Value("left guide")}, {"points", points({{-7.6f, 7.5f}, {-3.35f, 11.75f}})}});
+		add({{"type", Value("wall")}, {"id", Value("right guide")}, {"points", points({{6.6f, 7.5f}, {2.35f, 11.75f}})}});
 		add({{"type", Value("slingshot")}, {"id", Value("left slingshot")},
 			{"points", points({{-6, 6.6f}, {-6, 8.9f}, {-4.4f, 10.3f}})}});
 		add({{"type", Value("slingshot")}, {"id", Value("right slingshot")},
@@ -800,6 +803,64 @@ namespace
 			EditInt(part, "score", "Score", 250, 0, 100000);
 			EditInt(part, "bonus", "Bonus", 500, 0, 100000);
 		}
+		else if (type == "drop")
+		{
+			EditPosition(part);
+			EditFloat(part, "width", "Width", 0.8f, 0.3f, 2.0f);
+			EditFloat(part, "angle", "Facing", 90.0f, -180.0f, 180.0f, 1.0f);
+			EditFloat(part, "popup", "Pops up after", 1.0f, 0.2f, 10.0f, 0.05f);
+			EditColor(part, "color", "Colour", "#ff8a1f");
+			EditInt(part, "score", "Score", 500, 0, 100000);
+			EditInt(part, "bonus", "Bonus", 1000, 0, 100000);
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("Drops when hit. Put drop targets in a rules group: they come back up when the "
+			                   "group is done.");
+			ImGui::PopStyleColor();
+		}
+		else if (type == "kickout")
+		{
+			EditPosition(part);
+			EditFloat(part, "radius", "Size", 0.45f, 0.3f, 1.0f);
+			EditFloat(part, "angle", "Kicks towards", 90.0f, -180.0f, 180.0f, 1.0f);
+			EditFloat(part, "strength", "Kick", 1.0f, 0.3f, 3.0f);
+			EditColor(part, "color", "Colour", "#ff8a1f");
+			EditInt(part, "score", "Score", 2500, 0, 100000);
+			EditInt(part, "bonus", "Bonus", 1000, 0, 100000);
+		}
+		else if (type == "spinner")
+		{
+			EditPosition(part);
+			EditFloat(part, "width", "Width", 1.0f, 0.5f, 2.5f);
+			EditFloat(part, "angle", "Turn", 0.0f, -180.0f, 180.0f, 1.0f);
+			EditColor(part, "color", "Colour", "#33ccff");
+			EditInt(part, "score", "Score per spin", 100, 0, 100000);
+		}
+		else if (type == "ramp")
+		{
+			EditFloat(part, "width", "Width", 1.1f, 0.8f, 2.5f);
+			EditColor(part, "color", "Floor", "#33ccff");
+			EditColor(part, "railColor", "Rails", "#c8d0dc");
+			EditInt(part, "score", "Score", 5000, 0, 1000000);
+			EditInt(part, "bonus", "Bonus", 2000, 0, 1000000);
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("The ball enters at the first point and scores when it leaves the last one.");
+			ImGui::PopStyleColor();
+		}
+		else if (type == "gate")
+		{
+			EditColor(part, "color", "Colour", "#c8d0dc");
+			EditInt(part, "score", "Score", 0, 0, 100000);
+			if (ImGui::Button("Flip direction"))
+			{
+				auto& pts = part.At("points").MutableItems();
+				if (pts.size() == 2)
+					std::swap(pts[0], pts[1]);
+			}
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("A one-way flap. The ball passes from the side the arrow comes from and is "
+			                   "stopped the other way.");
+			ImGui::PopStyleColor();
+		}
 		else if (type == "light")
 		{
 			EditPosition(part);
@@ -817,7 +878,7 @@ namespace
 			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 			ImGui::TextWrapped("Drag the white points on the table to reshape it.");
 			ImGui::PopStyleColor();
-			if (type == "wall")
+			if (type == "wall" || type == "ramp")
 			{
 				auto& pts = part.At("points").MutableItems();
 				if (SelectedPoint >= 0 && SelectedPoint < static_cast<int>(pts.size()))
@@ -906,6 +967,25 @@ namespace
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Put a PNG or JPG next to the table file to use it as the playfield.\n"
 			                  "Tall pictures fit best (about 16 by 29).");
+		if (image.empty())
+		{
+			// Pattern painted under the parts when there is no picture.
+			auto decor = playfield["decor"].Str("grid");
+			ImGui::SetNextItemWidth(-90);
+			if (ImGui::BeginCombo("Pattern", decor == "space" ? "Stars and planet" : "Grid"))
+			{
+				if (ImGui::Selectable("Grid", decor != "space"))
+					playfield.At("decor") = Value("grid");
+				if (ImGui::Selectable("Stars and planet", decor == "space"))
+					playfield.At("decor") = Value("space");
+				ImGui::EndCombo();
+			}
+			if (playfield["decor"].Str() == "space")
+			{
+				EditFloat(playfield, "planetX", "Planet across", 0.0f, -TableW() / 2, TableW() / 2, 0.05f);
+				EditFloat(playfield, "planetY", "Planet down", 1.0f, -TableL() / 2, TableL() / 2, 0.05f);
+			}
+		}
 		ImGui::Spacing();
 
 		// Changing one colour by hand makes the theme a custom one.
@@ -930,7 +1010,8 @@ namespace
 
 	bool CanScore(const std::string& type)
 	{
-		return type == "lane" || type == "target" || type == "bumper" || type == "slingshot" || type == "post";
+		return type == "lane" || type == "target" || type == "bumper" || type == "slingshot" || type == "post" ||
+			type == "drop" || type == "kickout" || type == "spinner" || type == "ramp";
 	}
 
 	int PartById(const std::string& id)
@@ -1096,7 +1177,36 @@ namespace
 				HighlightGroup = static_cast<int>(g);
 			if (open)
 			{
-				EditText(group, "name", "Name");
+				auto oldName = group["name"].Str("GROUP");
+				if (EditText(group, "name", "Name"))
+				{
+					// Groups that start this mission follow the new name.
+					auto newName = group["name"].Str("GROUP");
+					for (auto& other : groups)
+						if (other["startsMission"].Str() == oldName)
+							other.At("startsMission") = Value(newName);
+				}
+				auto mission = group["mission"].Bool(false);
+				if (ImGui::Checkbox("Mission (started by another group)", &mission))
+				{
+					if (mission)
+						group.At("mission") = Value(true);
+					else
+					{
+						group.Remove("mission");
+						group.Remove("time");
+						group.Remove("hint");
+					}
+				}
+				if (mission)
+				{
+					EditFloat(group, "time", "Time limit", 0, 0, 300, 0.2f);
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Seconds to finish it once started. 0 = until the ball drains.");
+					EditText(group, "hint", "Hint");
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Shown when the mission starts, like SHOOT THE HOLE.");
+				}
 				auto counting = group["hits"].Int(0) > 0;
 				int mode = counting ? 1 : 0;
 				const char* modes[] = {"Hit each one", "Count hits"};
@@ -1129,20 +1239,44 @@ namespace
 				EditInt(group, "score", "Score", 5000, 0, 10000000, 50);
 				EditInt(group, "bonus", "Bonus", 0, 0, 10000000, 50);
 				{
-					const char* keys[] = {"none", "multiplier", "extraBall"};
-					const char* names[] = {"None", "Score multiplier up", "Extra ball"};
+					const char* keys[] = {"none", "multiplier", "extraBall", "multiball", "startMission"};
+					const char* names[] = {"None", "Score multiplier up", "Extra ball", "2-ball multiball",
+					                       "Start a mission"};
 					auto award = group["award"].Str("none");
 					int current = 0;
-					for (int i = 0; i < 3; i++)
+					for (int i = 0; i < 5; i++)
 						if (award == keys[i])
 							current = i;
 					ImGui::SetNextItemWidth(-90);
-					if (ImGui::Combo("Award", &current, names, 3))
+					if (ImGui::Combo("Award", &current, names, 5))
 					{
 						if (current == 0)
 							group.Remove("award");
 						else
 							group.At("award") = Value(keys[current]);
+						if (current != 4)
+							group.Remove("startsMission");
+					}
+					if (current == 4)
+					{
+						auto target = group["startsMission"].Str();
+						ImGui::SetNextItemWidth(-90);
+						if (ImGui::BeginCombo("Mission", target.empty() ? "(pick one)" : target.c_str()))
+						{
+							bool any = false;
+							for (size_t m = 0; m < groups.size(); m++)
+							{
+								if (m == g || !groups[m]["mission"].Bool(false))
+									continue;
+								any = true;
+								auto name = groups[m]["name"].Str("GROUP");
+								if (ImGui::Selectable(name.c_str(), name == target))
+									group.At("startsMission") = Value(name);
+							}
+							if (!any)
+								ImGui::TextDisabled("Tick \"Mission\" on another group first");
+							ImGui::EndCombo();
+						}
 					}
 				}
 				EditText(group, "message", "Message");
@@ -1200,10 +1334,16 @@ namespace
 			pts.Push(Point(x - 0.8f, y + 1.2f));
 			pts.Push(Point(x + 0.8f, y + 1.8f));
 		}
-		else if (type == "lane")
+		else if (type == "lane" || type == "gate")
 		{
 			pts.Push(Point(x - 0.8f, y));
 			pts.Push(Point(x + 0.8f, y));
+		}
+		else if (type == "ramp")
+		{
+			pts.Push(Point(x, y + 2.5f));
+			pts.Push(Point(x, y));
+			pts.Push(Point(x + 1.5f, y - 2.0f));
 		}
 		if (pts.Size())
 			part.Set("points", pts);
@@ -1623,9 +1763,11 @@ void tableeditor::Render()
 	ImGui::BeginChild("parts", ImVec2(130, 0), true);
 	ImGui::TextColored(ImVec4(0.75f, 0.65f, 1.0f, 1.0f), "Add");
 	ImGui::Separator();
-	const char* types[] = {"wall", "post", "bumper", "slingshot", "target", "lane", "light"};
-	const char* labels[] = {"Wall", "Post", "Bumper", "Slingshot", "Target", "Lane switch", "Light"};
-	for (int i = 0; i < 7; i++)
+	const char* types[] = {"wall", "post", "bumper", "slingshot", "target", "drop", "lane", "light", "kickout",
+	                       "spinner", "ramp", "gate"};
+	const char* labels[] = {"Wall", "Post", "Bumper", "Slingshot", "Target", "Drop target", "Lane switch", "Light",
+	                        "Kickout hole", "Spinner", "Ramp", "One-way gate"};
+	for (int i = 0; i < 12; i++)
 	{
 		if (ImGui::Button(labels[i], ImVec2(-1, 0)))
 			AddPart(types[i]);

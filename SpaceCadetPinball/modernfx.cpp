@@ -248,6 +248,31 @@ void modernfx::PanelRects(const SDL_Rect& screenRect, const SDL_Rect& left, cons
 	}
 }
 
+bool modernfx::MapPanelRect(SDL_Rect& rect, float& scale)
+{
+	SDL_Rect screenRect, left, right;
+	if (!WideLayout(screenRect, left, right))
+		return false;
+	SDL_Rect logo, scores, dsts[2];
+	PanelRegions(logo, scores);
+	PanelRects(screenRect, left, right, dsts);
+	const SDL_Rect* regions[2] = {&logo, &scores};
+	for (int i = 1; i >= 0; i--)
+	{
+		auto& region = *regions[i];
+		if (dsts[i].w <= 0 || region.w <= 0 || rect.y < region.y || rect.y >= region.y + region.h ||
+			rect.x < region.x)
+			continue;
+		scale = static_cast<float>(dsts[i].w) / region.w;
+		rect = SDL_Rect{
+			dsts[i].x + static_cast<int>((rect.x - region.x) * scale), dsts[i].y + static_cast<int>((rect.y - region.y) * scale),
+			static_cast<int>(rect.w * scale), static_cast<int>(rect.h * scale)
+		};
+		return true;
+	}
+	return false;
+}
+
 void modernfx::DrawAmbient(SDL_Texture* screenTexture, bool wide)
 {
 	if (!wide || !screenTexture)
