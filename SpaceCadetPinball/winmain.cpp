@@ -614,6 +614,10 @@ void winmain::RenderUi()
 				{
 					options::toggle(Menu1::LightGlow);
 				}
+				if (ImGui::MenuItem("Dot-Matrix Display", nullptr, Options.DotMatrix))
+				{
+					options::toggle(Menu1::DotMatrix);
+				}
 				ImGui::TextUnformatted("Glow Strength");
 				ImGui::SliderFloat("##Glow Strength", &Options.LightGlowStrength.V, 0.0f, 2.0f, "%.2f",
 				                   ImGuiSliderFlags_AlwaysClamp);

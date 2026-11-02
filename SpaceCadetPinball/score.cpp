@@ -6,6 +6,7 @@
 #include "loader.h"
 #include "GroupData.h"
 #include "pb.h"
+#include "ledfx.h"
 #include "render.h"
 
 
@@ -44,6 +45,7 @@ scoreStruct* score::create(LPCSTR fieldName, gdrv_bitmap8* renderBgBmp)
 		score->CharBmp[index] = loader::loader_table->GetBitmap(groupIndex);
 		++groupIndex;
 	}
+	ledfx::AddDisplay(score->OffsetX, score->OffsetY, score->Width, score->Height);
 	return score;
 }
 

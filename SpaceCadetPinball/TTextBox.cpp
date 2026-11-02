@@ -6,6 +6,7 @@
 #include "loader.h"
 #include "pb.h"
 #include "render.h"
+#include "ledfx.h"
 #include "score.h"
 #include "timer.h"
 
@@ -31,6 +32,7 @@ TTextBox::TTextBox(TPinballTable* table, int groupIndex) : TPinballComponent(tab
 		OffsetY = dimensions[1];
 		Width = dimensions[2];
 		Height = dimensions[3];
+		ledfx::AddDisplay(OffsetX, OffsetY, Width, Height);
 	}
 }
 

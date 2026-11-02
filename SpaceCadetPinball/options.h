@@ -32,6 +32,7 @@ enum class Menu1:int
 	WindowIntegerScale = 602,
 	LedLighting = 603,
 	LightGlow = 604,
+	DotMatrix = 605,
 	Prefer3DPBGameData = 700,
 };
 
@@ -294,4 +295,5 @@ struct optionsStruct
 	BoolOption LedLighting;
 	BoolOption LightGlow;
 	FloatOption LightGlowStrength;
+	BoolOption DotMatrix;
 };

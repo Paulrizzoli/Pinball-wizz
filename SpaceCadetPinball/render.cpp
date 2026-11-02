@@ -337,6 +337,14 @@ gdrv_bitmap8* render::GetTableBitmap()
 	return nullptr;
 }
 
+void render::GetScreenTransform(float& x, float& y, float& scaleX, float& scaleY)
+{
+	scaleX = static_cast<float>(DestinationRect.w) / vscreen->Width;
+	scaleY = static_cast<float>(DestinationRect.h) / vscreen->Height;
+	x = static_cast<float>(DestinationRect.x);
+	y = static_cast<float>(DestinationRect.y);
+}
+
 void render::GetBoardTransform(float& x, float& y, float& scaleX, float& scaleY, SDL_Rect& clip)
 {
 	// Maps 1x vScreen coordinates of the table area to window coordinates, matching PresentVScreen.
@@ -620,6 +628,7 @@ void render::PresentVScreen()
 	}
 
 	ledfx::DrawGlow();
+	ledfx::DrawDisplays();
 
 	if (options::Options.DebugOverlay)
 	{

@@ -16,6 +16,7 @@ std::unordered_map<const gdrv_bitmap8*, ledfx::BmpInfo> ledfx::Cache;
 std::unordered_map<const gdrv_bitmap8*, ledfx::RefBitmap> ledfx::Refs;
 std::unordered_map<const gdrv_bitmap8*, gdrv_bitmap8*> ledfx::OffCache;
 uint64_t ledfx::LastTicks = 0;
+std::vector<ledfx::Display> ledfx::Displays;
 
 namespace
 {
@@ -26,8 +27,12 @@ namespace
 	// Glow texture border around the light bitmap, in 1x pixels.
 	constexpr int GlowPad = 14;
 
+	// Dot-matrix display: texture pixels per display dot, glow border in 1x pixels.
+	constexpr int DotCell = 6;
+	constexpr int DmdGlowPad = 3;
+
 	// Brightness of an unlit lamp insert compared to the original art.
-	constexpr float OffLevel = 0.6f;
+	constexpr float OffLevel = 0.7f;
 
 	float Luma(ColorRgba c)
 	{
@@ -467,6 +472,147 @@ void ledfx::DrawGlow()
 	SDL_RenderSetClipRect(winmain::Renderer, nullptr);
 }
 
+void ledfx::AddDisplay(int x, int y, int width, int height)
+{
+	if (width <= 0 || height <= 0)
+		return;
+	for (auto& display : Displays)
+	{
+		if (display.X == x && display.Y == y && display.Width == width && display.Height == height)
+			return;
+	}
+	Display display;
+	display.X = x;
+	display.Y = y;
+	display.Width = width;
+	display.Height = height;
+	Displays.push_back(display);
+}
+
+void ledfx::RebuildDisplay(Display& display)
+{
+	auto w = display.Width, h = display.Height;
+	if (!display.Dots)
+	{
+		display.Dots = SDL_CreateTexture(winmain::Renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
+		                                 w * DotCell, h * DotCell);
+		display.Glow = SDL_CreateTexture(winmain::Renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
+		                                 w + DmdGlowPad * 2, h + DmdGlowPad * 2);
+		if (!display.Dots || !display.Glow)
+			return;
+		SDL_SetTextureBlendMode(display.Dots, SDL_BLENDMODE_NONE);
+		SDL_SetTextureBlendMode(display.Glow, SDL_BLENDMODE_ADD);
+#if SDL_VERSION_ATLEAST(2, 0, 12)
+		SDL_SetTextureScaleMode(display.Dots, SDL_ScaleModeLinear);
+		SDL_SetTextureScaleMode(display.Glow, SDL_ScaleModeLinear);
+#endif
+	}
+
+	// Round dot with a soft edge, as coverage per texture pixel of one cell.
+	static float dotMask[DotCell * DotCell];
+	static bool maskReady = false;
+	if (!maskReady)
+	{
+		maskReady = true;
+		auto center = DotCell / 2.0f, radius = DotCell * 0.42f;
+		for (int y = 0; y < DotCell; y++)
+			for (int x = 0; x < DotCell; x++)
+			{
+				auto dx = x + 0.5f - center, dy = y + 0.5f - center;
+				auto dist = std::sqrt(dx * dx + dy * dy);
+				dotMask[y * DotCell + x] = std::min(1.0f, std::max(0.0f, radius - dist + 0.5f));
+			}
+	}
+
+	const ColorRgba unlitDot{26, 22, 34, 255};
+	std::vector<ColorRgba> dots(w * DotCell * h * DotCell);
+	std::vector<float> glow((w + DmdGlowPad * 2) * (h + DmdGlowPad * 2) * 3, 0.0f);
+	auto glowW = w + DmdGlowPad * 2;
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			auto pixel = ColorRgba{display.Pixels[y * w + x]};
+			auto level = std::max(pixel.GetRed(), std::max(pixel.GetGreen(), pixel.GetBlue()));
+			auto lit = std::min(1.0f, std::max(0.0f, (level - 24) / 60.0f));
+			auto color = Lerp(unlitDot, LedColor(pixel), lit);
+			if (lit > 0)
+			{
+				auto dst = &glow[((y + DmdGlowPad) * glowW + x + DmdGlowPad) * 3];
+				dst[0] = color.GetRed() * lit;
+				dst[1] = color.GetGreen() * lit;
+				dst[2] = color.GetBlue() * lit;
+			}
+
+			for (int cy = 0; cy < DotCell; cy++)
+				for (int cx = 0; cx < DotCell; cx++)
+				{
+					auto m = dotMask[cy * DotCell + cx];
+					dots[(y * DotCell + cy) * w * DotCell + x * DotCell + cx] = ColorRgba{
+						static_cast<uint8_t>(color.GetRed() * m), static_cast<uint8_t>(color.GetGreen() * m),
+						static_cast<uint8_t>(color.GetBlue() * m), 255
+					};
+				}
+		}
+	}
+	SDL_UpdateTexture(display.Dots, nullptr, dots.data(), w * DotCell * 4);
+
+	GaussianBlur(glow, glowW, h + DmdGlowPad * 2, 1.3f);
+	std::vector<ColorRgba> glowPixels(glow.size() / 3);
+	for (auto i = 0u; i < glowPixels.size(); i++)
+		glowPixels[i] = ColorRgba{
+			static_cast<uint8_t>(std::min(255.0f, glow[i * 3] * 0.9f)),
+			static_cast<uint8_t>(std::min(255.0f, glow[i * 3 + 1] * 0.9f)),
+			static_cast<uint8_t>(std::min(255.0f, glow[i * 3 + 2] * 0.9f)), 255
+		};
+	SDL_UpdateTexture(display.Glow, nullptr, glowPixels.data(), glowW * 4);
+}
+
+void ledfx::DrawDisplays()
+{
+	auto screen = render::vscreen;
+	if (!options::Options.DotMatrix || Displays.empty() || !screen)
+		return;
+
+	float originX, originY, scaleX, scaleY;
+	render::GetScreenTransform(originX, originY, scaleX, scaleY);
+	for (auto& display : Displays)
+	{
+		if (display.X < 0 || display.Y < 0 || display.X + display.Width > screen->Width ||
+			display.Y + display.Height > screen->Height)
+			continue;
+
+		// Rebuild only when the box contents change (score updates, new message).
+		std::vector<uint32_t> pixels(display.Width * display.Height);
+		for (int y = 0; y < display.Height; y++)
+			for (int x = 0; x < display.Width; x++)
+				pixels[y * display.Width + x] =
+					screen->BmpBufPtr1[(display.Y + y) * screen->Stride + display.X + x].Color;
+		if (pixels != display.Pixels || !display.Dots)
+		{
+			display.Pixels = std::move(pixels);
+			RebuildDisplay(display);
+		}
+		if (!display.Dots)
+			continue;
+
+		SDL_Rect clip{
+			static_cast<int>(originX + display.X * scaleX + 0.5f), static_cast<int>(originY + display.Y * scaleY + 0.5f),
+			static_cast<int>(display.Width * scaleX + 0.5f), static_cast<int>(display.Height * scaleY + 0.5f)
+		};
+		SDL_RenderCopy(winmain::Renderer, display.Dots, nullptr, &clip);
+		SDL_RenderSetClipRect(winmain::Renderer, &clip);
+		SDL_Rect glowRect{
+			static_cast<int>(originX + (display.X - DmdGlowPad) * scaleX + 0.5f),
+			static_cast<int>(originY + (display.Y - DmdGlowPad) * scaleY + 0.5f),
+			static_cast<int>((display.Width + DmdGlowPad * 2) * scaleX + 0.5f),
+			static_cast<int>((display.Height + DmdGlowPad * 2) * scaleY + 0.5f)
+		};
+		SDL_RenderCopy(winmain::Renderer, display.Glow, nullptr, &glowRect);
+		SDL_RenderSetClipRect(winmain::Renderer, nullptr);
+	}
+}
+
 void ledfx::SettingsChanged()
 {
 	for (auto sprite : Lights)
@@ -493,5 +639,13 @@ void ledfx::Uninit()
 	OffCache.clear();
 	Refs.clear();
 	Lights.clear();
+	for (auto& display : Displays)
+	{
+		if (display.Dots)
+			SDL_DestroyTexture(display.Dots);
+		if (display.Glow)
+			SDL_DestroyTexture(display.Glow);
+	}
+	Displays.clear();
 	LastTicks = 0;
 }

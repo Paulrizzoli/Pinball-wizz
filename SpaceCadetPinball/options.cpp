@@ -156,6 +156,7 @@ optionsStruct options::Options
 	{"LED Lighting", true},
 	{"Light Glow", true},
 	{"Light Glow Strength", 1.0f},
+	{"Dot-Matrix Display", true},
 };
 
 void options::InitPrimary()
@@ -322,6 +323,9 @@ void options::toggle(Menu1 uIDCheckItem)
 		break;
 	case Menu1::LightGlow:
 		Options.LightGlow ^= true;
+		break;
+	case Menu1::DotMatrix:
+		Options.DotMatrix ^= true;
 		break;
 	default:
 		break;

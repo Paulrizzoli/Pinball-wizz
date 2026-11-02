@@ -36,6 +36,18 @@ HD versions of each sprite, and the Nx screen is what gets presented.
 * Only the Space Cadet 640x480 table data is supported; Full Tilt's other resolutions run in the
   original renderer.
 
+## LED lighting and dot-matrix display
+
+Options > Graphics has these switches (all on by default, with or without an HD pack):
+
+- **LED Lighting**: table lights fade smoothly on and off instead of snapping, lit lamps get brighter,
+  more saturated colours, and unlit lamp inserts are dimmed so lit ones stand out.
+- **Light Glow** and **Glow Strength**: a soft bloom around lit lamps and flashing bumpers.
+- **Dot-Matrix Display**: the score and message boxes are drawn as a grid of little round LEDs.
+
+All of it is computed at runtime from the player's own table art (`SpaceCadetPinball/ledfx.cpp`);
+game logic is unchanged.
+
 ## The HD pack tool
 
 `tools/hdpack/make_hd_pack.py` reads the .dat file, rebuilds the exact palette the game uses, and

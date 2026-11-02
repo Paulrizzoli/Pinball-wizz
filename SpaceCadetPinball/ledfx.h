@@ -55,6 +55,10 @@ public:
 	// Draws the glow of lit lamps on top of the presented table.
 	static void DrawGlow();
 
+	// Score and message boxes drawn as a dot-matrix display of little round LEDs (1x vScreen rectangle).
+	static void AddDisplay(int x, int y, int width, int height);
+	static void DrawDisplays();
+
 	// Repaints all lights after the LED option changes.
 	static void SettingsChanged();
 
@@ -74,6 +78,16 @@ private:
 	static std::unordered_map<const gdrv_bitmap8*, RefBitmap> Refs;
 	static std::unordered_map<const gdrv_bitmap8*, gdrv_bitmap8*> OffCache;
 	static uint64_t LastTicks;
+
+	struct Display
+	{
+		int X, Y, Width, Height;
+		std::vector<uint32_t> Pixels;
+		SDL_Texture* Dots = nullptr;
+		SDL_Texture* Glow = nullptr;
+	};
+	static std::vector<Display> Displays;
+	static void RebuildDisplay(Display& display);
 
 	static BmpInfo& Info(gdrv_bitmap8* bmp, int xPos, int yPos);
 	static float Emission(gdrv_bitmap8* bmp, int xPos, int yPos);
