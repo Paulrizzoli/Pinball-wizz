@@ -309,4 +309,5 @@ struct optionsStruct
 	BoolOption CrtFilter;
 	BoolOption SmoothPlay;
 	IntOption HdDetail; // 0 = auto, 1 = original art, 2..4 = HD pack scale
+	StringOption TableFile; // custom table (.pwtable) to play; empty = Space Cadet
 };

@@ -76,6 +76,9 @@ vector3 proj::ReverseXForm(const vector2i& vec)
 
 	auto y0 = (y2 * (A * z0 + G) - B * z0 - F) / (A + B * y2);
 	auto x0 = x2 * (A * z0 - B * y0 + G);
+	// Custom tables use a mirrored X row (-1) so table X grows to the right on screen.
+	if (matrix.Row0.X != 0.0f)
+		x0 /= matrix.Row0.X;
 	return {x0, y0, z0};
 }
 

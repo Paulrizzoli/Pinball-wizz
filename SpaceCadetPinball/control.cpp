@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "control.h"
+#include "customrules.h"
+#include "customtable.h"
 
 #include "midi.h"
 #include "pb.h"
@@ -846,6 +848,12 @@ std::reference_wrapper<TLight*> control::WormholeLightArray2[3] =
 void control::make_links(TPinballTable* table)
 {
 	TableG = table;
+	if (customtable::Active)
+	{
+		// Custom tables have their own rules; none of Space Cadet's parts exist there.
+		customrules::Attach(table);
+		return;
+	}
 
 	for (auto& score_component : score_components)
 	{
@@ -863,6 +871,7 @@ void control::make_links(TPinballTable* table)
 void control::ClearLinks()
 {
 	TableG = nullptr;
+	customrules::Detach();
 	for (auto& component : score_components)
 		component.Tag.SetComponent(nullptr);
 	for (auto& component : simple_components)
@@ -891,6 +900,12 @@ TPinballComponent* control::make_component_link(component_tag_base& tag)
 
 void control::handler(MessageCode code, TPinballComponent* cmp)
 {
+	if (customtable::Active)
+	{
+		customrules::Handler(code, cmp);
+		return;
+	}
+
 	component_control* control = cmp->Control;
 	
 	if (control)
@@ -954,6 +969,12 @@ void control::pbctrl_bdoor_controller(char key)
 		"Jeff Braun\nBob Derber\nAshley Csicsery",
 		"Tom Forge\nWill \"Burr\" Wright",
 	};
+
+	if (customtable::Active)
+	{
+		// Space Cadet cheats need Space Cadet's parts.
+		return;
+	}
 
 	// Original allowed to enter cheats only before the first launch.
 	std::memmove(&cheatBuffer[0], &cheatBuffer[1], 10);
@@ -1097,6 +1118,8 @@ void control::table_set_replay(float value)
 
 void control::cheat_bump_rank()
 {
+	if (customtable::Active)
+		return;
 	char Buffer[64]{};
 
 	auto rank = middle_circle->Message(MessageCode::TLightGroupGetOnCount, 0.0);
@@ -1112,6 +1135,11 @@ void control::cheat_bump_rank()
 
 void control::UnstuckBall(TBall& ball, int dt)
 {
+	if (customtable::Active)
+	{
+		customrules::UnstuckBall(ball, dt);
+		return;
+	}
 	if (!CheckBallInControlBounds(ball, *flip1) &&
 		!CheckBallInControlBounds(ball, *flip2) &&
 		!CheckBallInControlBounds(ball, *plunger))
@@ -2901,6 +2929,8 @@ void control::BallDrainControl(MessageCode code, TPinballComponent* caller)
 
 void control::table_control_handler(MessageCode code)
 {
+	if (customtable::Active)
+		return;
 	if (code == MessageCode::SetTiltLock)
 	{
 		table_unlimited_balls = false;

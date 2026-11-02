@@ -44,6 +44,10 @@ public:
 
 	// Registers a ready-made HD twin for a 1x bitmap (used for bitmaps made at runtime, like LED-tinted lights).
 	static void SetTwin(gdrv_bitmap8* bmp, gdrv_bitmap8* twin);
+	static void SetTwin(zmap_header_type* zMap, zmap_header_type* twin);
+
+	// Custom tables paint their own HD images: turns HD on at the given scale without a pack.
+	static bool BeginCustom(int scale);
 
 	// Called from destructors so a reused address never picks up a stale twin.
 	static void Forget(const gdrv_bitmap8* bmp);

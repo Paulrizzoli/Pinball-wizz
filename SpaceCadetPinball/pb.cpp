@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "pb.h"
 #include "hdgfx.h"
+#include "customtable.h"
 
 
 #include "control.h"
@@ -47,14 +48,32 @@ int pb::init()
 {
 	float projMat[12];
 
-	if (DatFileName.empty())
-		return 1;
-	auto dataFilePath = make_path_name(DatFileName);
-	record_table = partman::load_records(dataFilePath.c_str(), FullTiltMode);
+	record_table = nullptr;
+	customtable::Unload();
+	auto& tableFile = options::Options.TableFile.V;
+	if (!tableFile.empty())
+	{
+		std::string error;
+		record_table = customtable::Load(tableFile, error);
+		if (!record_table)
+		{
+			auto message = "Pinball Wizz couldn't open the table \"" + tableFile + "\".\n\n" + error +
+				"\n\nThe game will use Space Cadet instead.";
+			ShowMessageBox(SDL_MESSAGEBOX_WARNING, "Couldn't open table", message.c_str());
+			tableFile.clear();
+		}
+	}
+	if (!record_table)
+	{
+		if (DatFileName.empty())
+			return 1;
+		auto dataFilePath = make_path_name(DatFileName);
+		record_table = partman::load_records(dataFilePath.c_str(), FullTiltMode);
+	}
 
 	auto useBmpFont = 0;
 	get_rc_int(Msg::TextBoxUseBitmapFont, &useBmpFont);
-	if (useBmpFont)
+	if (useBmpFont && !customtable::Active)
 		score::load_msg_font("pbmsg_ft");
 
 	if (!record_table)
@@ -62,6 +81,8 @@ int pb::init()
 
 	auto plt = (ColorRgba*)record_table->field_labeled("background", FieldTypes::Palette);
 	gdrv::display_palette(plt);
+	if (customtable::Active)
+		customtable::ApplyColors();
 
 	auto backgroundBmp = record_table->GetBitmap(record_table->record_labeled("background"));
 	auto cameraInfoId = record_table->record_labeled("camera_info") + fullscrn::GetResolution();
@@ -80,11 +101,23 @@ int pb::init()
 		auto projD = cameraInfo[0];
 		auto zMin = cameraInfo[1];
 		auto zScaler = cameraInfo[2];
+		if (customtable::Active)
+		{
+			// Custom tables place the camera centre themselves.
+			projCenterX = cameraInfo[3];
+			projCenterY = cameraInfo[4];
+		}
 		proj::init(projMat, projD, projCenterX, projCenterY, zMin, zScaler);
 	}
 
 	// HD pack must be loaded before render::init registers the buffers it mirrors.
-	hdgfx::LoadPack(record_table, BasePath, fullscrn::GetResolution());
+	if (customtable::Active)
+	{
+		hdgfx::BeginCustom(customtable::HdScale());
+		customtable::ApplyHd();
+	}
+	else
+		hdgfx::LoadPack(record_table, BasePath, fullscrn::GetResolution());
 	render::init(nullptr, resInfo->TableWidth, resInfo->TableHeight);
 	gdrv::copy_bitmap(
 		render::vscreen,
@@ -131,6 +164,7 @@ int pb::uninit()
 	MainTable = nullptr;
 	timer::uninit();
 	render::uninit();
+	customtable::Unload();
 	return 0;
 }
 

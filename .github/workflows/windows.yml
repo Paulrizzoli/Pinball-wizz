@@ -103,6 +103,7 @@ jobs:
           Copy-Item LICENSE, LICENSE.SpaceCadetPinball $pkg
           Copy-Item tools/hdpack/MODEL_LICENSE.txt $pkg
           Copy-Item tools/hdpack/OFL.txt $pkg/FONT_LICENSE.txt
+          Copy-Item -Recurse Tables $pkg
           Get-ChildItem $pkg | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
