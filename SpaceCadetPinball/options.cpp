@@ -160,6 +160,12 @@ optionsStruct options::Options
 	{"Ball Shadow", true},
 	{"Ball Light Reflections", true},
 	{"Light Spill", true},
+	{"Ball Trail", true},
+	{"Bumper Sparks", true},
+	{"Nudge Shake", true},
+	{"Widescreen Backglass", true},
+	{"CRT Filter", false},
+	{"Smooth Play", true},
 };
 
 void options::InitPrimary()

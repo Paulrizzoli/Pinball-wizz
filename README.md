@@ -57,6 +57,20 @@ Options > Graphics has these switches (all on by default, with or without an HD 
 All of it is computed at runtime from the player's own table art (`SpaceCadetPinball/ledfx.cpp`);
 game logic is unchanged.
 
+## Settings window and modern effects
+
+A **Settings** button sits at the bottom of the table on the start screen and during the demo, and
+**Options > Settings...** opens the same window at any time. It holds every switch below plus the
+lighting ones above (`SpaceCadetPinball/modernfx.cpp`):
+
+- **Ball trail**: a short fading streak behind the moving ball.
+- **Bumper flash and sparks**: a flash and a burst of sparks in the bumper's colour on each hit.
+- **Shake the table when nudging**: a brief damped shake of the whole picture.
+- **Widescreen backglass**: on windows wider than the game, the table fills the height, with the
+  backglass art on the left and an enlarged score panel on the right over a blurred copy of the table.
+- **CRT / arcade filter** (off by default): scanlines and a soft vignette.
+- **Smooth play**: draws at the monitor's refresh rate and runs physics at 240 updates per second.
+
 ## The HD pack tool
 
 `tools/hdpack/make_hd_pack.py` reads the .dat file, rebuilds the exact palette the game uses, and

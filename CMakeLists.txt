@@ -190,6 +190,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/hdgfx.h
         SpaceCadetPinball/ledfx.cpp
         SpaceCadetPinball/ledfx.h
+        SpaceCadetPinball/modernfx.cpp
+        SpaceCadetPinball/modernfx.h
         SpaceCadetPinball/stb_image.h
         )
 

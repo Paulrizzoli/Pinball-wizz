@@ -4,6 +4,7 @@
 
 #include "pb.h"
 #include "render.h"
+#include "modernfx.h"
 #include "TBall.h"
 #include "timer.h"
 #include "TPinballTable.h"
@@ -80,4 +81,5 @@ void nudge::_nudge(float xDiff, float yDiff)
 	}
 
 	render::shift(static_cast<int>(floor(xDiff + 0.5f)), static_cast<int>(floor(0.5f - yDiff)));
+	modernfx::Nudge(xDiff, -yDiff);
 }

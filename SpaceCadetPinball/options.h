@@ -302,4 +302,10 @@ struct optionsStruct
 	BoolOption BallShadow;
 	BoolOption BallGlints;
 	BoolOption LightSpill;
+	BoolOption BallTrail;
+	BoolOption BumperSparks;
+	BoolOption NudgeShake;
+	BoolOption Backglass;
+	BoolOption CrtFilter;
+	BoolOption SmoothPlay;
 };

@@ -24,6 +24,7 @@ TBumper::TBumper(TPinballTable* table, int groupIndex) : TCollisionComponent(tab
 	{
 		// Bumper bitmaps come in unlit/lit pairs; only the difference within a pair is lamp light.
 		ledfx::Register(RenderSprite, false);
+		ledfx::MarkBumper(RenderSprite);
 		for (auto index = 0u; index < ListBitmap->size(); index++)
 		{
 			auto unlit = ListBitmap->at(index & ~1u).Bmp;

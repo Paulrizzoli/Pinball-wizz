@@ -28,6 +28,8 @@ public:
 	// Marks a sprite as a light (called by TLight and TBumper). With dimWhenOff, the lamp art printed on
 	// the table under the light is darkened while the light is off, like an unlit LED insert.
 	static void Register(render_sprite* sprite, bool dimWhenOff);
+	// Bumpers also get a flash and sparks (motion effects) when they light up.
+	static void MarkBumper(render_sprite* sprite);
 
 	// By default the table art under a lamp is its unlit look. Parts with their own unlit bitmap
 	// (bumpers) name it here, so only the difference counts as lamp light.
@@ -58,6 +60,14 @@ public:
 	// Score and message boxes drawn as a dot-matrix display of little round LEDs (1x vScreen rectangle).
 	static void AddDisplay(int x, int y, int width, int height);
 	static void DrawDisplays();
+	// Same, with a custom 1x-to-window transform, for the displays inside region (1x vScreen pixels).
+	static void DrawDisplays(float originX, float originY, float scaleX, float scaleY, const struct SDL_Rect& region);
+
+	// Positions of the dot-matrix boxes (1x vScreen pixels).
+	static std::vector<SDL_Rect> DisplayRects();
+
+	// Lamp colour of a light bitmap (average lit colour); false when it has no lamp light.
+	static bool LampColor(gdrv_bitmap8* bmp, int xPos, int yPos, uint8_t color[3]);
 
 	// Repaints all lights after the LED option changes.
 	static void SettingsChanged();
@@ -77,6 +87,7 @@ private:
 	};
 
 	static std::vector<render_sprite*> Lights;
+	static std::vector<render_sprite*> Bumpers;
 	static std::unordered_map<const gdrv_bitmap8*, BmpInfo> Cache;
 	static std::unordered_map<const gdrv_bitmap8*, RefBitmap> Refs;
 	static std::unordered_map<const gdrv_bitmap8*, gdrv_bitmap8*> OffCache;
