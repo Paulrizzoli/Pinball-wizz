@@ -1,0 +1,82 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      SDL2_VERSION: 2.30.9
+      SDL2_MIXER_VERSION: 2.8.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download SDL2 and SDL2_mixer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force Libs | Out-Null
+          Invoke-WebRequest "https://github.com/libsdl-org/SDL/releases/download/release-$env:SDL2_VERSION/SDL2-devel-$env:SDL2_VERSION-VC.zip" -OutFile sdl2.zip
+          Invoke-WebRequest "https://github.com/libsdl-org/SDL_mixer/releases/download/release-$env:SDL2_MIXER_VERSION/SDL2_mixer-devel-$env:SDL2_MIXER_VERSION-VC.zip" -OutFile sdl2_mixer.zip
+          Expand-Archive sdl2.zip -DestinationPath Libs
+          Expand-Archive sdl2_mixer.zip -DestinationPath Libs
+          Rename-Item "Libs/SDL2-$env:SDL2_VERSION" SDL2
+          Rename-Item "Libs/SDL2_mixer-$env:SDL2_MIXER_VERSION" SDL2_mixer
+
+      - name: Build game
+        shell: pwsh
+        run: |
+          cmake -S . -B build -A x64 -DCMAKE_WIN32_EXECUTABLE:BOOL=1
+          cmake --build build --config Release
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache upscaler models
+        id: models
+        uses: actions/cache@v4
+        with:
+          path: tools/hdpack/*.onnx
+          key: hdpack-models-${{ hashFiles('tools/hdpack/export_models.py') }}
+
+      - name: Convert upscaler models to ONNX
+        if: steps.models.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install spandrel onnx
+          python tools/hdpack/export_models.py
+
+      - name: Build HD pack tool
+        shell: pwsh
+        run: |
+          # Clean venv so PyTorch (used only for the model conversion) can't end up in the exe.
+          python -m venv hdpack-venv
+          ./hdpack-venv/Scripts/python -m pip install --upgrade pip
+          ./hdpack-venv/Scripts/python -m pip install -r tools/hdpack/requirements.txt pyinstaller
+          ./hdpack-venv/Scripts/pyinstaller --onefile --console --name MakeHDPack `
+            --exclude-module torch --exclude-module torchvision --exclude-module spandrel `
+            --add-data "tools/hdpack/realesrgan_x4_anime6b.onnx;." `
+            --add-data "tools/hdpack/realesrgan_x4plus.onnx;." `
+            tools/hdpack/make_hd_pack.py
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $pkg = "package/PinballWizz"
+          New-Item -ItemType Directory -Force $pkg | Out-Null
+          Copy-Item bin/Release/SpaceCadetPinball.exe, bin/Release/SDL2.dll, bin/Release/SDL2_mixer.dll $pkg
+          Copy-Item dist/MakeHDPack.exe $pkg
+          Copy-Item Doc/HOW-TO-PLAY-IN-HD.txt $pkg
+          Copy-Item LICENSE, LICENSE.SpaceCadetPinball $pkg
+          Copy-Item tools/hdpack/MODEL_LICENSE.txt $pkg
+          Get-ChildItem $pkg | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PinballWizz-Windows-x64
+          path: package/PinballWizz
