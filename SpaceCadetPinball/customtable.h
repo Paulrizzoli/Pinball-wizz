@@ -8,15 +8,36 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdint>
 
 class DatFile;
 class TPinballComponent;
+
+// A flat top-down sketch of a table, for the table picker. Coordinates are table units, origin at the centre.
+struct TablePreviewShape
+{
+	enum Kinds { Line, Circle, Polygon };
+	Kinds Kind;
+	std::vector<float> Points; // x, y pairs; Circle uses the first pair as its centre
+	float Radius = 0;
+	float Width = 0; // line width in table units
+	uint32_t Color = 0; // 0xAABBGGRR, like ImGui's IM_COL32
+	bool Filled = false;
+};
+
+struct TablePreview
+{
+	float Width = 16, Length = 29;
+	uint32_t Playfield = 0, Playfield2 = 0, Accent = 0;
+	std::vector<TablePreviewShape> Shapes;
+};
 
 struct CustomTableEntry
 {
 	std::string Path;
 	std::string Name;
 	std::string Author;
+	TablePreview Preview;
 };
 
 class customtable

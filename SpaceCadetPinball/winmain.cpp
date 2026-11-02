@@ -11,6 +11,7 @@
 #include "modernfx.h"
 #include "hdgfx.h"
 #include "customtable.h"
+#include "tablepicker.h"
 #include "updates.h"
 #include "Sound.h"
 #include "translations.h"
@@ -275,6 +276,7 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 			pb::toggle_demo();
 		else
 			pb::replay_level(false);
+		tablepicker::FirstStart();
 
 		MainLoop();
 
@@ -530,6 +532,9 @@ void winmain::RenderUi()
 			if (ImGui::IsWindowAppearing())
 				tables = customtable::FindTables(customtable::SearchFolders);
 
+			if (ImGui::MenuItem("Choose Table..."))
+				tablepicker::Show();
+			ImGui::Separator();
 			if (ImGui::MenuItem("Space Cadet", nullptr, !customtable::Active, !pb::DatFileName.empty()) &&
 				customtable::Active)
 			{
@@ -886,6 +891,7 @@ void winmain::RenderUi()
 
 	modernfx::RenderTitleButton();
 	modernfx::RenderSettingsWindow();
+	tablepicker::Render();
 	a_dialog();
 	high_score::RenderHighScoreDialog();
 	font_selection::RenderDialog();

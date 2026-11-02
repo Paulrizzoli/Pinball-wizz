@@ -196,6 +196,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/customtable.h
         SpaceCadetPinball/customrules.cpp
         SpaceCadetPinball/customrules.h
+        SpaceCadetPinball/tablepicker.cpp
+        SpaceCadetPinball/tablepicker.h
         SpaceCadetPinball/ledfx.cpp
         SpaceCadetPinball/ledfx.h
         SpaceCadetPinball/modernfx.cpp
