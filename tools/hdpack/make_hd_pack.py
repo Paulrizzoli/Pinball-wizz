@@ -16,6 +16,9 @@ import time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import art_fixes  # noqa: E402
+
 PACK_VERSION = 1
 CONTEXT = 8  # pixels of surrounding table art fed to the upscaler, so sprite edges blend in
 
@@ -230,19 +233,35 @@ def main():
     if not font:
         print("Logo font not found, logo lettering will keep the upscaled original.")
 
+    balls = art_fixes.ball_groups(items)
+    table_hd = None  # (x, y, 4x image) of the table art, for sprites redrawn on top of it
+
     start = time.time()
     for n, (gid, x, y, rgba, name) in enumerate(items, 1):
         h, w = rgba.shape[:2]
-        rgb4 = upscale_with_context(up, rgba, x, y, table)
-        if font and name in LOGO_TEXT:
-            rgb4 = relabel(rgba, rgb4, LOGO_TEXT[name], font)
-        img = Image.fromarray(rgb4)
         s = args.scale
-        if s != 4:
-            img = img.resize((w * s, h * s), Image.LANCZOS)
-        # Transparency follows the original pixel grid exactly, so the game's depth logic still lines up.
-        alpha = Image.fromarray(np.where(rgba[..., 3] > 0, 255, 0).astype(np.uint8)).resize((w * s, h * s), Image.NEAREST)
-        img.putalpha(alpha)
+        if gid in balls:
+            # Drawn from scratch as a chrome ball, with its own smooth round edge.
+            img = Image.fromarray(art_fixes.render_chrome_ball(rgba, s), "RGBA")
+        else:
+            rgb4 = upscale_with_context(up, rgba, x, y, table)
+            if font and name in LOGO_TEXT:
+                rgb4 = relabel(rgba, rgb4, LOGO_TEXT[name], font)
+            if name == "table":
+                table_hd = (x, y, rgb4)
+            if name in art_fixes.ARROW_LIGHTS and table_hd:
+                tx, ty, t4 = table_hd
+                under = t4[(y - ty) * 4:(y - ty + h) * 4, (x - tx) * 4:(x - tx + w) * 4]
+                if under.shape[:2] == (h * 4, w * 4):
+                    arrow = art_fixes.redraw_arrow(rgba, under)
+                    if arrow is not None:
+                        rgb4 = arrow
+            img = Image.fromarray(rgb4)
+            if s != 4:
+                img = img.resize((w * s, h * s), Image.LANCZOS)
+            # Transparency follows the original pixel grid exactly, so the game's depth logic lines up.
+            alpha = Image.fromarray(np.where(rgba[..., 3] > 0, 255, 0).astype(np.uint8)).resize((w * s, h * s), Image.NEAREST)
+            img.putalpha(alpha)
         img.save(os.path.join(out, f"{gid:03d}.png"), optimize=False, compress_level=6)
         print(f"\r[{n}/{len(items)}] {name or gid}".ljust(60), end="", flush=True)
 

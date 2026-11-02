@@ -15,12 +15,17 @@ This repository and its downloads contain no Microsoft game data. Players use th
 
 ## Playing in HD on Windows
 
-1. Download the latest `PinballWizz-Windows-x64` build from the Actions tab (or Releases).
+1. Download the newest build:
+   [PinballWizz-Windows-x64.zip](https://github.com/Paulrizzoli/Pinball-wizz/releases/latest/download/PinballWizz-Windows-x64.zip)
+   (every change merged to main republishes it).
 2. Copy your `PINBALL.DAT`, `FONT.DAT`, `SOUND*.WAV` and `PINBALL.MID` into the folder.
 3. Run `MakeHDPack.exe` once. It writes an `HD` folder next to `PINBALL.DAT`.
 4. Run `SpaceCadetPinball.exe`. F4 toggles fullscreen.
 
 Delete or rename the `HD` folder to go back to the original graphics.
+
+To update, copy the new `SpaceCadetPinball.exe` and `MakeHDPack.exe` over the old ones, delete the
+`HD` folder and run `MakeHDPack.exe` again.
 
 ## How the HD renderer works
 
@@ -61,6 +66,9 @@ upscales every sprite 4x with Real-ESRGAN (ONNX, CPU only, BSD-3, see
   over the old letters and draws the words fresh in Inter ExtraBold Italic (SIL OFL, see
   `tools/hdpack/OFL.txt`), fitted to where the old letters were. The boxes are listed in
   `LOGO_TEXT` at the top of the script.
+* A few sprites are redrawn procedurally instead (`tools/hdpack/art_fixes.py`): the blue arrow
+  lights get a clean, pointed two-tone arrow fitted to the original's shape, and the ball is
+  rendered as a chrome sphere reflecting the room and the table, with a smooth round edge.
 
 ```
 pip install -r tools/hdpack/requirements.txt
