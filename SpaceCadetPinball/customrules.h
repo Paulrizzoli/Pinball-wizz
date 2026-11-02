@@ -34,6 +34,8 @@ private:
 	static bool LastBall;
 	static int BallBonus;
 	static int ActivePlayer;
+	static float BallStartTime; // first hit of the ball in play, or < 0
+	static bool BallSaved;      // the ball save was used for this ball
 	static std::vector<GroupState> Groups[4];
 	static std::map<int, TPinballComponent*> Parts;
 

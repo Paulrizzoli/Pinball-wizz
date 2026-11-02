@@ -11,12 +11,16 @@ A table is a `.pwtable` file in the `Tables` folder next to the game. It is plai
 - Click a part to select it, drag it to move it. Walls, slingshots and lane switches show white points that
   can be dragged to reshape them; walls can gain or lose points.
 - The left column adds parts (they appear in the middle of the view), copies or deletes the selected part.
-- The right column changes the selected part, or the table's name and colours when nothing is selected.
+- The right column changes the selected part, or the table's name and look when nothing is selected:
+  pick a ready-made **Theme** (colour set) or change each colour, and choose a **Picture** for the
+  playfield from the PNG/JPG files in the table's folder.
+- The **Rules** tab sets up groups of parts (see Rules below), the shoot-again and multiplier lights and the
+  ball save. **Pick on the table** adds parts and lights to a group by clicking them; a group's parts show
+  in green and its lights in yellow.
 - Right-drag pans, the mouse wheel zooms, **Fit** shows the whole table. **Snap to grid** keeps positions on
   0.1 steps.
 - **Undo**/**Redo** (Ctrl+Z, Ctrl+Y), **Save** (Ctrl+S), **Save and Play** saves and starts the table.
-- Renaming or deleting a part keeps the rules pointing at the right parts. Rules themselves are edited in
-  the file for now.
+- Renaming or deleting a part keeps the rules pointing at the right parts.
 
 Packed (zip) tables can't be edited in the game yet.
 
@@ -29,8 +33,8 @@ player. The default playfield is 16 wide and 29 long.
 | --- | --- |
 | `format`, `version` | Always `"pinball-wizz-table"` and `1`. |
 | `name`, `author` | Shown in the picker and on the score panel. |
-| `playfield` | `width`, `length`, `color`, `color2` (gradient), `image` (PNG in the zip), `nameX`, `nameY`. |
-| `theme` | Colours: `walls`, `rubber`, `accent`, `accent2`, `cabinet`, `panel`, `metal`, `ball`, `display`. |
+| `playfield` | `width`, `length`, `color`, `color2` (gradient), `image` (a PNG or JPG in the zip, or next to the table file; it replaces the painted playfield), `nameX`, `nameY`. |
+| `theme` | Colours: `walls`, `rubber`, `accent`, `accent2`, `cabinet`, `panel`, `metal`, `ball`, `display`; `name` is the theme picked in the editor. |
 | `ballsPerGame` | 1 to 9, default 3. |
 | `parts` | The parts, below. Give a part an `id` to use it in rules. |
 | `rules` | Groups, awards and lights, below. |
@@ -63,7 +67,8 @@ player. The default playfield is 16 wide and 29 long.
      "message": "BUMPER FRENZY"}
   ],
   "extraBallLight": "shoot again",
-  "multiplierLights": ["mult 2X", "mult 3X", "mult 5X", "mult 10X"]
+  "multiplierLights": ["mult 2X", "mult 3X", "mult 5X", "mult 10X"],
+  "ballSave": 8
 }
 ```
 
@@ -71,4 +76,7 @@ player. The default playfield is 16 wide and 29 long.
   Its lights show progress, then flash and reset.
 - `award`: `none`, `multiplier` (bonus and scoring multiplier 2X, 3X, 5X, 10X for the rest of the ball) or
   `extraBall`.
+- `ballSave`: seconds after a ball's first hit in which a drained ball is given back, once per ball (a ball
+  that drains before hitting anything is given back too). 0 or missing: off.
+- A group with no parts yet is ignored.
 - At the end of each ball the bonus is scored, times the multiplier, and the multiplier resets.

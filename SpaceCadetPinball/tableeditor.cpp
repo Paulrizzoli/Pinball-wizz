@@ -7,8 +7,12 @@
 #include "tableart.h"
 #include "pb.h"
 #include "winmain.h"
+#include "stb_image.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstring>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -19,6 +23,7 @@
 #endif
 #include <windows.h>
 #else
+#include <dirent.h>
 #include <sys/stat.h>
 #endif
 
@@ -45,6 +50,38 @@ namespace
 	double StatusUntil = 0;
 	bool AskClose = false;
 	bool SkipChange = false; // the document changed by undo or redo, not by an edit
+	bool RulesTab = false;
+	int PickGroup = -1;      // rules group that clicks on the table add parts to
+	int HighlightGroup = -1; // rules group whose parts are outlined on the table
+	int OpenGroup = -1;      // rules group to unfold on the next frame
+	SDL_Texture* PictureTexture = nullptr;
+	std::string PictureLoaded; // file the picture texture was made from
+
+	struct ThemePreset
+	{
+		const char* Name;
+		const char* Top;
+		const char* Bottom;
+		const char* Walls;
+		const char* Rubber;
+		const char* Accent;
+		const char* Accent2;
+		const char* Cabinet;
+		const char* Panel;
+	};
+
+	// Ready-made colour sets. The playfield runs from Top (far end) to Bottom (flippers).
+	const ThemePreset Themes[] = {
+		{"Midnight", "#1b2a55", "#0b1026", "#b9c6dd", "#f2f2ee", "#ff8a1f", "#33ccff", "#1e1826", "#0d0f1c"},
+		{"Deep Space", "#151a3d", "#04050d", "#a9b8ff", "#e8ecff", "#ff4fd8", "#4dfcff", "#121226", "#07070f"},
+		{"Sunset", "#ff8a4c", "#4a1650", "#ffe4c8", "#fff4e6", "#ffd23f", "#ff3d7f", "#2b1030", "#170816"},
+		{"Jungle", "#24663c", "#0a1f12", "#d9e8b0", "#f4f8e8", "#ffb300", "#7cff6b", "#2a1d10", "#0b140c"},
+		{"Neon Arcade", "#1a0033", "#020005", "#e4e0ff", "#ffffff", "#ff2bd6", "#00f0ff", "#0d0d18", "#05050a"},
+		{"Skatepark", "#9aa0a6", "#50565c", "#f4f4f4", "#ffffff", "#ff5a1f", "#2ee6a8", "#23262b", "#121417"},
+		{"Candy", "#ffb7d5", "#a46cff", "#ffffff", "#ffffff", "#ff3d7f", "#3dd6ff", "#5a2a6e", "#2a1236"},
+		{"Fire", "#8a1a08", "#1a0402", "#ffd0a0", "#fff0e0", "#ffcc00", "#ff5a00", "#2a0c06", "#140402"},
+		{"Ice", "#bfe6ff", "#2a5a8a", "#ffffff", "#ffffff", "#2a7fff", "#00e0ff", "#1a2a40", "#0a1420"},
+	};
 
 	enum class DragMode { None, Body, Point, View };
 	DragMode Dragging = DragMode::None;
@@ -217,6 +254,108 @@ namespace
 	}
 
 	// ---------------------------------------------------------------------------------------------
+	// Pictures
+
+	std::string TableFolder()
+	{
+		auto cut = FilePath.find_last_of("/\\");
+		return cut == std::string::npos ? std::string() : FilePath.substr(0, cut + 1);
+	}
+
+	bool IsPicture(std::string name)
+	{
+		for (auto& c : name)
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		auto ends = [&](const char* ext)
+		{
+			auto n = strlen(ext);
+			return name.size() > n && name.compare(name.size() - n, n, ext) == 0;
+		};
+		return ends(".png") || ends(".jpg") || ends(".jpeg");
+	}
+
+	// Pictures in the table's folder, by file name.
+	std::vector<std::string> ListPictures()
+	{
+		std::vector<std::string> names;
+		auto folder = TableFolder();
+#ifdef _WIN32
+		auto pattern = folder + "*";
+		int len = MultiByteToWideChar(CP_UTF8, 0, pattern.c_str(), -1, nullptr, 0);
+		std::wstring wide(static_cast<size_t>(len > 0 ? len : 1), L'\0');
+		MultiByteToWideChar(CP_UTF8, 0, pattern.c_str(), -1, &wide[0], len);
+		WIN32_FIND_DATAW data;
+		auto handle = FindFirstFileW(wide.c_str(), &data);
+		if (handle != INVALID_HANDLE_VALUE)
+		{
+			do
+			{
+				if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+					continue;
+				int n = WideCharToMultiByte(CP_UTF8, 0, data.cFileName, -1, nullptr, 0, nullptr, nullptr);
+				std::string name(static_cast<size_t>(n), '\0');
+				WideCharToMultiByte(CP_UTF8, 0, data.cFileName, -1, &name[0], n, nullptr, nullptr);
+				name.resize(strlen(name.c_str()));
+				if (IsPicture(name))
+					names.push_back(name);
+			}
+			while (FindNextFileW(handle, &data));
+			FindClose(handle);
+		}
+#else
+		auto dir = opendir(folder.empty() ? "." : folder.c_str());
+		if (dir)
+		{
+			while (auto ent = readdir(dir))
+				if (IsPicture(ent->d_name))
+					names.emplace_back(ent->d_name);
+			closedir(dir);
+		}
+#endif
+		std::sort(names.begin(), names.end());
+		return names;
+	}
+
+	void FreePicture()
+	{
+		if (PictureTexture)
+			SDL_DestroyTexture(PictureTexture);
+		PictureTexture = nullptr;
+		PictureLoaded.clear();
+	}
+
+	// Texture of the playfield picture for the editor view, or nullptr.
+	SDL_Texture* Picture()
+	{
+		auto name = Doc["playfield"]["image"].Str();
+		if (name == PictureLoaded)
+			return PictureTexture;
+		FreePicture();
+		PictureLoaded = name;
+		if (name.empty() || !winmain::Renderer)
+			return nullptr;
+		auto file = fopenu((TableFolder() + name).c_str(), "rb");
+		if (!file)
+			return nullptr;
+		std::string bytes;
+		char buffer[65536];
+		size_t got;
+		while ((got = fread(buffer, 1, sizeof buffer, file)) > 0)
+			bytes.append(buffer, got);
+		fclose(file);
+		int w, h, channels;
+		auto pixels = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(bytes.data()),
+		                                    static_cast<int>(bytes.size()), &w, &h, &channels, 4);
+		if (!pixels)
+			return nullptr;
+		PictureTexture = SDL_CreateTexture(winmain::Renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, w, h);
+		if (PictureTexture)
+			SDL_UpdateTexture(PictureTexture, nullptr, pixels, w * 4);
+		stbi_image_free(pixels);
+		return PictureTexture;
+	}
+
+	// ---------------------------------------------------------------------------------------------
 	// Files
 
 	bool WriteFile(const std::string& path, const std::string& text)
@@ -266,6 +405,8 @@ namespace
 
 	void Close()
 	{
+		FreePicture();
+		PickGroup = HighlightGroup = -1;
 		tableeditor::Open = false;
 		AskClose = false;
 		Dragging = DragMode::None;
@@ -721,21 +862,321 @@ namespace
 		EditText(Doc, "author", "Made by");
 		EditInt(Doc, "ballsPerGame", "Balls", 3, 1, 9, 0.05f);
 		ImGui::Spacing();
-		ImGui::TextColored(ImVec4(0.75f, 0.65f, 1.0f, 1.0f), "Colours");
+		ImGui::TextColored(ImVec4(0.75f, 0.65f, 1.0f, 1.0f), "Look");
 		ImGui::Separator();
 		auto& playfield = Doc.At("playfield");
+		auto& theme = Doc.At("theme");
+
+		auto themeName = theme["name"].Str("Custom");
+		ImGui::SetNextItemWidth(-90);
+		if (ImGui::BeginCombo("Theme", themeName.c_str()))
+		{
+			for (auto& preset : Themes)
+			{
+				if (ImGui::Selectable(preset.Name, themeName == preset.Name))
+				{
+					theme.At("name") = Value(preset.Name);
+					playfield.At("color") = Value(preset.Top);
+					playfield.At("color2") = Value(preset.Bottom);
+					theme.At("walls") = Value(preset.Walls);
+					theme.At("rubber") = Value(preset.Rubber);
+					theme.At("accent") = Value(preset.Accent);
+					theme.At("accent2") = Value(preset.Accent2);
+					theme.At("cabinet") = Value(preset.Cabinet);
+					theme.At("panel") = Value(preset.Panel);
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		auto image = playfield["image"].Str();
+		ImGui::SetNextItemWidth(-90);
+		if (ImGui::BeginCombo("Picture", image.empty() ? "None (painted)" : image.c_str()))
+		{
+			if (ImGui::Selectable("None (painted)", image.empty()))
+				playfield.Remove("image");
+			auto pictures = ListPictures();
+			for (auto& name : pictures)
+				if (ImGui::Selectable(name.c_str(), name == image))
+					playfield.At("image") = Value(name);
+			if (pictures.empty())
+				ImGui::TextDisabled("No pictures in the table's folder");
+			ImGui::EndCombo();
+		}
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Put a PNG or JPG next to the table file to use it as the playfield.\n"
+			                  "Tall pictures fit best (about 16 by 29).");
+		ImGui::Spacing();
+
+		// Changing one colour by hand makes the theme a custom one.
+		auto before = Doc.Dump();
 		EditColor(playfield, "color", "Playfield top", "#1b2a55");
 		EditColor(playfield, "color2", "Playfield bottom", "#0b1026");
-		auto& theme = Doc.At("theme");
 		EditColor(theme, "walls", "Walls", "#b9c6dd");
 		EditColor(theme, "accent", "Accent", "#ff8a1f");
 		EditColor(theme, "accent2", "Second accent", "#33ccff");
 		EditColor(theme, "cabinet", "Cabinet", "#1e1826");
 		EditColor(theme, "panel", "Score panel", "#0d0f1c");
+		if (Doc.Dump() != before)
+			theme.At("name") = Value("Custom");
 		ImGui::Spacing();
 		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 		ImGui::TextWrapped("Click a part on the table to change it. Delete removes it, Ctrl+Z undoes.");
 		ImGui::PopStyleColor();
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Rules panel
+
+	bool CanScore(const std::string& type)
+	{
+		return type == "lane" || type == "target" || type == "bumper" || type == "slingshot" || type == "post";
+	}
+
+	int PartById(const std::string& id)
+	{
+		auto& items = Parts().Items();
+		for (size_t i = 0; i < items.size(); i++)
+			if (items[i]["id"].Str() == id)
+				return static_cast<int>(i);
+		return -1;
+	}
+
+	// Ids of parts that can go into a group (lights == true: the lights).
+	std::vector<std::string> Choices(bool lights)
+	{
+		std::vector<std::string> ids;
+		for (auto& part : Parts().Items())
+		{
+			auto type = part["type"].Str();
+			if ((lights ? type == "light" : CanScore(type)) && !part["id"].Str().empty())
+				ids.push_back(part["id"].Str());
+		}
+		return ids;
+	}
+
+	bool Contains(const Value& list, const std::string& id)
+	{
+		for (auto& item : list.Items())
+			if (item.Str() == id)
+				return true;
+		return false;
+	}
+
+	// Adds a part to a group, or takes it out when it is already in.
+	void ToggleInGroup(Value& group, const std::string& id, bool light)
+	{
+		auto& list = group.At(light ? "lights" : "parts");
+		if (!list.IsArray())
+			list = Value::MakeArray();
+		auto& items = list.MutableItems();
+		for (size_t i = 0; i < items.size(); i++)
+		{
+			if (items[i].Str() == id)
+			{
+				items.erase(items.begin() + i);
+				return;
+			}
+		}
+		items.push_back(Value(id));
+	}
+
+	// A light picker: one id or none.
+	void LightCombo(const char* label, Value& slot)
+	{
+		auto current = slot.Str();
+		ImGui::SetNextItemWidth(-90);
+		if (ImGui::BeginCombo(label, current.empty() ? "(none)" : current.c_str()))
+		{
+			if (ImGui::Selectable("(none)", current.empty()))
+				slot = Value("");
+			for (auto& id : Choices(true))
+				if (ImGui::Selectable(id.c_str(), id == current))
+					slot = Value(id);
+			ImGui::EndCombo();
+		}
+	}
+
+	void PartsList(Value& group, bool lights)
+	{
+		auto& list = group.At(lights ? "lights" : "parts");
+		if (!list.IsArray())
+			list = Value::MakeArray();
+		auto& items = list.MutableItems();
+		for (size_t i = 0; i < items.size(); i++)
+		{
+			ImGui::PushID(static_cast<int>(i));
+			if (ImGui::SmallButton("x"))
+			{
+				items.erase(items.begin() + i);
+				ImGui::PopID();
+				break;
+			}
+			ImGui::SameLine();
+			auto id = items[i].Str();
+			ImGui::TextColored(PartById(id) < 0 ? ImVec4(1, 0.45f, 0.4f, 1) : ImVec4(0.9f, 0.9f, 0.95f, 1), "%s",
+			                   id.c_str());
+			ImGui::PopID();
+		}
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::BeginCombo(lights ? "##addlight" : "##addpart", lights ? "Add a light..." : "Add a part..."))
+		{
+			for (auto& id : Choices(lights))
+				if (!Contains(list, id) && ImGui::Selectable(id.c_str()))
+					items.push_back(Value(id));
+			ImGui::EndCombo();
+		}
+	}
+
+	void RulesSettings()
+	{
+		auto& rules = Doc.At("rules");
+		if (!rules.IsObject())
+			rules = Value::MakeObject();
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::TextWrapped("Groups of parts give points and awards when they are all hit, or hit a number of "
+		                   "times. Each part's light comes on as it is hit.");
+		ImGui::PopStyleColor();
+		ImGui::Spacing();
+
+		ImGui::TextColored(ImVec4(0.75f, 0.65f, 1.0f, 1.0f), "Whole table");
+		ImGui::Separator();
+		EditFloat(rules, "ballSave", "Ball save", 0, 0, 30, 0.1f);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Seconds after a ball starts in which a drained ball is given back (once).\n0 = off.");
+		LightCombo("Shoot again", rules.At("extraBallLight"));
+		if (rules["extraBallLight"].Str().empty())
+			rules.Remove("extraBallLight");
+		auto& mult = rules.At("multiplierLights");
+		if (!mult.IsArray())
+			mult = Value::MakeArray();
+		const char* multLabels[] = {"2X light", "3X light", "5X light", "10X light"};
+		for (size_t i = 0; i < 4; i++)
+		{
+			auto& items = mult.MutableItems();
+			Value slot = i < items.size() ? items[i] : Value("");
+			auto before = slot.Str();
+			ImGui::PushID(static_cast<int>(i));
+			LightCombo(multLabels[i], slot);
+			ImGui::PopID();
+			if (slot.Str() != before)
+			{
+				while (items.size() <= i)
+					items.push_back(Value(""));
+				items[i] = slot;
+			}
+		}
+		// Unused slots at the end are dropped; the game skips none.
+		{
+			auto& items = mult.MutableItems();
+			while (!items.empty() && items.back().Str().empty())
+				items.pop_back();
+		}
+		ImGui::Spacing();
+
+		ImGui::TextColored(ImVec4(0.75f, 0.65f, 1.0f, 1.0f), "Groups");
+		ImGui::Separator();
+		auto& groupsValue = rules.At("groups");
+		if (!groupsValue.IsArray())
+			groupsValue = Value::MakeArray();
+		auto& groups = groupsValue.MutableItems();
+		HighlightGroup = PickGroup;
+		for (size_t g = 0; g < groups.size(); g++)
+		{
+			auto& group = groups[g];
+			ImGui::PushID(static_cast<int>(g));
+			auto title = group["name"].Str("GROUP") + "###group";
+			if (OpenGroup == static_cast<int>(g))
+			{
+				ImGui::SetNextItemOpen(true);
+				OpenGroup = -1;
+			}
+			auto open = ImGui::CollapsingHeader(title.c_str());
+			if (ImGui::IsItemHovered() && HighlightGroup < 0)
+				HighlightGroup = static_cast<int>(g);
+			if (open)
+			{
+				EditText(group, "name", "Name");
+				auto counting = group["hits"].Int(0) > 0;
+				int mode = counting ? 1 : 0;
+				const char* modes[] = {"Hit each one", "Count hits"};
+				ImGui::SetNextItemWidth(-90);
+				if (ImGui::Combo("Goal", &mode, modes, 2))
+				{
+					if (mode == 1)
+						group.At("hits") = Value(10);
+					else
+						group.Remove("hits");
+				}
+				if (mode == 1)
+					EditInt(group, "hits", "Hits", 10, 1, 999, 0.2f);
+
+				ImGui::TextDisabled("Parts");
+				PartsList(group, false);
+				ImGui::TextDisabled(mode == 1 ? "Lights (fill up as hits add up)" : "Lights (one per part, in order)");
+				PartsList(group, true);
+				auto picking = PickGroup == static_cast<int>(g);
+				if (picking)
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.55f, 0.3f, 1));
+				if (ImGui::Button(picking ? "Done picking" : "Pick on the table", ImVec2(-1, 0)))
+				{
+					PickGroup = picking ? -1 : static_cast<int>(g);
+					Selected = SelectedPoint = -1;
+				}
+				if (picking)
+					ImGui::PopStyleColor();
+
+				EditInt(group, "score", "Score", 5000, 0, 10000000, 50);
+				EditInt(group, "bonus", "Bonus", 0, 0, 10000000, 50);
+				{
+					const char* keys[] = {"none", "multiplier", "extraBall"};
+					const char* names[] = {"None", "Score multiplier up", "Extra ball"};
+					auto award = group["award"].Str("none");
+					int current = 0;
+					for (int i = 0; i < 3; i++)
+						if (award == keys[i])
+							current = i;
+					ImGui::SetNextItemWidth(-90);
+					if (ImGui::Combo("Award", &current, names, 3))
+					{
+						if (current == 0)
+							group.Remove("award");
+						else
+							group.At("award") = Value(keys[current]);
+					}
+				}
+				EditText(group, "message", "Message");
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Shown when the group is done. Empty: \"NAME COMPLETE\".");
+				if (ImGui::SmallButton("Delete group"))
+				{
+					groups.erase(groups.begin() + g);
+					PickGroup = HighlightGroup = -1;
+					ImGui::PopID();
+					break;
+				}
+				ImGui::Spacing();
+			}
+			ImGui::PopID();
+		}
+		if (ImGui::Button("Add a group", ImVec2(-1, 0)))
+		{
+			auto group = Value::MakeObject();
+			group.Set("name", Value("GROUP " + std::to_string(groups.size() + 1)));
+			group.Set("parts", Value::MakeArray());
+			group.Set("lights", Value::MakeArray());
+			group.Set("score", Value(5000));
+			groups.push_back(group);
+			PickGroup = OpenGroup = static_cast<int>(groups.size()) - 1;
+			Selected = SelectedPoint = -1;
+		}
+	}
+
+	// Rules group for the table view's outlines, or nullptr.
+	const Value* GroupAt(int index)
+	{
+		auto& groups = Doc["rules"]["groups"].Items();
+		return index >= 0 && index < static_cast<int>(groups.size()) ? &groups[index] : nullptr;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -863,7 +1304,26 @@ namespace
 			Dragging = DragMode::View;
 			DragStart = io.MousePos;
 		}
-		if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && PickGroup >= 0)
+		{
+			auto picked = PickPart(preview, mouse);
+			auto& groups = Doc.At("rules").At("groups").MutableItems();
+			if (picked >= 0 && PickGroup < static_cast<int>(groups.size()))
+			{
+				auto type = parts[picked]["type"].Str();
+				auto id = parts[picked]["id"].Str();
+				if (id.empty())
+				{
+					id = UniqueId(type);
+					parts[picked].At("id") = Value(id);
+				}
+				if (type == "light" || CanScore(type))
+					ToggleInGroup(groups[PickGroup], id, type == "light");
+				else
+					SetStatus("That part can't be in a group");
+			}
+		}
+		else if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 		{
 			Dragging = DragMode::None;
 			// A point of the selected part first.
@@ -920,8 +1380,11 @@ namespace
 		draw->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
 		draw->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(12, 12, 18, 255));
 		auto p0 = ToScreen(-w / 2, -l / 2), p1 = ToScreen(w / 2, l / 2);
-		draw->AddRectFilledMultiColor(p0, p1, preview.Playfield, preview.Playfield, preview.Playfield2,
-		                              preview.Playfield2);
+		if (auto picture = Picture())
+			draw->AddImage(picture, p0, p1);
+		else
+			draw->AddRectFilledMultiColor(p0, p1, preview.Playfield, preview.Playfield, preview.Playfield2,
+			                              preview.Playfield2);
 		for (float gx = std::ceil(-w / 2); gx <= w / 2; gx += 1)
 			draw->AddLine(ToScreen(gx, -l / 2), ToScreen(gx, l / 2),
 			              gx == 0 ? IM_COL32(255, 255, 255, 50) : IM_COL32(255, 255, 255, 18));
@@ -937,6 +1400,19 @@ namespace
 				DrawShape(draw, shape, IM_COL32(255, 220, 60, 255), 3);
 			else if (shape.PartIndex == hoverPart)
 				DrawShape(draw, shape, IM_COL32(255, 255, 255, 120), 2);
+		}
+		if (auto group = GroupAt(HighlightGroup))
+		{
+			for (auto& shape : preview.Shapes)
+			{
+				if (shape.PartIndex < 0 || shape.PartIndex >= static_cast<int>(parts.size()))
+					continue;
+				auto id = parts[shape.PartIndex]["id"].Str();
+				if (Contains((*group)["parts"], id))
+					DrawShape(draw, shape, IM_COL32(80, 255, 120, 255), 3);
+				else if (Contains((*group)["lights"], id))
+					DrawShape(draw, shape, IM_COL32(255, 230, 80, 255), 3);
+			}
 		}
 		for (auto& shape : preview.Shapes)
 			DrawShape(draw, shape, shape.Color, 0);
@@ -971,8 +1447,17 @@ namespace
 			snprintf(pos, sizeof pos, "%.1f, %.1f", mouse.x, mouse.y);
 			draw->AddText(ImVec2(origin.x + 8, origin.y + size.y - 20), IM_COL32(200, 200, 210, 200), pos);
 		}
-		draw->AddText(ImVec2(origin.x + 8, origin.y + 6), IM_COL32(170, 170, 190, 200),
-		              "Drag parts to move them. Right-drag to pan, wheel to zoom.");
+		if (auto group = GroupAt(PickGroup))
+		{
+			auto text = "Click parts and lights to add them to " + (*group)["name"].Str("the group") +
+				" (click again to take them out).";
+			draw->AddRectFilled(ImVec2(origin.x, origin.y), ImVec2(origin.x + size.x, origin.y + 26),
+			                    IM_COL32(30, 90, 50, 230));
+			draw->AddText(ImVec2(origin.x + 8, origin.y + 6), IM_COL32(230, 255, 235, 255), text.c_str());
+		}
+		else
+			draw->AddText(ImVec2(origin.x + 8, origin.y + 6), IM_COL32(170, 170, 190, 200),
+			              "Drag parts to move them. Right-drag to pan, wheel to zoom.");
 		draw->PopClipRect();
 	}
 }
@@ -995,11 +1480,19 @@ bool tableeditor::Edit(const std::string& path)
 	}
 	Doc = doc;
 	// The editor writes into these, so make sure they exist before the first undo snapshot.
-	for (auto key : {"playfield", "theme"})
+	for (auto key : {"playfield", "theme", "rules"})
 		if (!Doc[key].IsObject())
 			Doc.Set(key, Value::MakeObject());
 	if (!Doc["parts"].IsArray())
 		Doc.Set("parts", Value::MakeArray());
+	auto& rules = Doc.At("rules");
+	for (auto key : {"groups", "multiplierLights"})
+		if (!rules[key].IsArray())
+			rules.Set(key, Value::MakeArray());
+	for (auto& group : rules.At("groups").MutableItems())
+		for (auto key : {"parts", "lights"})
+			if (!group[key].IsArray())
+				group.Set(key, Value::MakeArray());
 	FilePath = path;
 	Dirty = false;
 	Selected = SelectedPoint = -1;
@@ -1009,6 +1502,8 @@ bool tableeditor::Edit(const std::string& path)
 	Zoom = 1;
 	Pan = ImVec2(0, 0);
 	Status.clear();
+	FreePicture();
+	PickGroup = HighlightGroup = -1;
 	if (!Open)
 		winmain::pause(false);
 	Open = true;
@@ -1153,7 +1648,7 @@ void tableeditor::Render()
 	ImGui::SameLine();
 
 	// Table view.
-	auto settingsW = 270.0f;
+	auto settingsW = 300.0f;
 	ImGui::BeginChild("view", ImVec2(ImGui::GetContentRegionAvail().x - settingsW - 8, 0), true,
 	                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	Canvas();
@@ -1162,10 +1657,28 @@ void tableeditor::Render()
 
 	// Settings.
 	ImGui::BeginChild("settings", ImVec2(0, 0), true);
-	if (Selected >= 0 && Selected < static_cast<int>(Parts().Size()))
-		PartSettings(Parts().MutableItems()[Selected]);
-	else
-		TableSettings();
+	RulesTab = false;
+	if (ImGui::BeginTabBar("side"))
+	{
+		auto hasPart = Selected >= 0 && Selected < static_cast<int>(Parts().Size());
+		if (ImGui::BeginTabItem(hasPart ? "Part###settings" : "Table###settings"))
+		{
+			if (hasPart)
+				PartSettings(Parts().MutableItems()[Selected]);
+			else
+				TableSettings();
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Rules"))
+		{
+			RulesTab = true;
+			RulesSettings();
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+	if (!RulesTab)
+		PickGroup = HighlightGroup = -1;
 	ImGui::EndChild();
 
 	// Keys.
@@ -1182,6 +1695,7 @@ void tableeditor::Render()
 			Save();
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
 		{
+			PickGroup = -1;
 			Selected = -1;
 			SelectedPoint = -1;
 		}

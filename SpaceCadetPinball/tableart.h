@@ -104,6 +104,8 @@ class Art2D
 public:
 	Art2D(int width, int height, int scale);
 	void Clear(ArtColor c, float alpha = 1.0f);
+	// Covers the whole canvas with an 8-bit RGB picture, stretched to fit (smoothly sampled).
+	void Picture(const unsigned char* rgb, int width, int height);
 	void FillRect(float x, float y, float w, float h, ArtColor c, float radius = 0, float alpha = 1.0f);
 	void VerticalGradient(float x, float y, float w, float h, ArtColor top, ArtColor bottom, float radius = 0);
 	void StrokeRect(float x, float y, float w, float h, float lineWidth, ArtColor c, float radius = 0,

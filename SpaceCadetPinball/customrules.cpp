@@ -17,6 +17,8 @@ TPinballTable* customrules::Table = nullptr;
 bool customrules::LastBall = false;
 int customrules::BallBonus = 0;
 int customrules::ActivePlayer = 0;
+float customrules::BallStartTime = -1;
+bool customrules::BallSaved = false;
 std::vector<customrules::GroupState> customrules::Groups[4];
 std::map<int, TPinballComponent*> customrules::Parts;
 
@@ -44,6 +46,8 @@ void customrules::Attach(TPinballTable* table)
 	LastBall = false;
 	BallBonus = 0;
 	ActivePlayer = 0;
+	BallStartTime = -1;
+	BallSaved = false;
 	Parts.clear();
 	for (auto component : table->ComponentList)
 		if (component->GroupIndex >= 0)
@@ -146,6 +150,8 @@ void customrules::Handler(MessageCode code, TPinballComponent* caller)
 
 void customrules::PartHit(TPinballComponent* part)
 {
+	if (BallStartTime < 0)
+		BallStartTime = pb::time_now;
 	auto index = part->GroupIndex;
 	auto score = customtable::ScoreFor(part);
 	if (score > 0)
@@ -242,6 +248,20 @@ void customrules::Drained()
 		return;
 	}
 
+	// Ball save: a ball lost soon after it started playing (or before it hit anything) comes back, once.
+	auto save = customtable::Rules.BallSave;
+	if (save > 0 && !BallSaved && !Table->TiltLockFlag &&
+		(BallStartTime < 0 || pb::time_now - BallStartTime <= save))
+	{
+		BallSaved = true;
+		BallStartTime = -1;
+		LastBall = false;
+		Mission("BALL SAVED", 2.0f);
+		return;
+	}
+	BallSaved = false;
+	BallStartTime = -1;
+
 	// End-of-ball bonus, times the multiplier.
 	if (!Table->TiltLockFlag && BallBonus > 0)
 	{
@@ -286,6 +306,8 @@ void customrules::TableMessage(MessageCode code)
 	case MessageCode::Reset:
 		LastBall = false;
 		BallBonus = 0;
+		BallStartTime = -1;
+		BallSaved = false;
 		ActivePlayer = 0;
 		for (int player = 0; player < 4; player++)
 			ResetGroups(player);
