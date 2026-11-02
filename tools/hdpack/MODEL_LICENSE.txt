@@ -1,4 +1,4 @@
-MakeHDPack uses the RealESRGAN_x4plus_anime_6B model from Real-ESRGAN
+MakeHDPack uses the RealESRGAN_x4plus_anime_6B and RealESRGAN_x4plus models from Real-ESRGAN
 (https://github.com/xinntao/Real-ESRGAN), converted to ONNX format.
 
 BSD 3-Clause License

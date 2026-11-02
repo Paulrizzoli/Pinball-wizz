@@ -39,13 +39,20 @@ HD versions of each sprite, and the Nx screen is what gets presented.
 ## The HD pack tool
 
 `tools/hdpack/make_hd_pack.py` reads the .dat file, rebuilds the exact palette the game uses, and
-upscales every sprite 4x with Real-ESRGAN (anime 6B model, ONNX, CPU only, BSD-3, see
-`tools/hdpack/MODEL_LICENSE.txt`). Each sprite is upscaled together with the table art around it,
-so its edges blend into the table, and its transparency mask follows the original pixel grid so the
-game's depth sorting still lines up.
+upscales every sprite 4x with Real-ESRGAN (ONNX, CPU only, BSD-3, see
+`tools/hdpack/MODEL_LICENSE.txt`):
+
+* The anime 6B model does the artwork: it removes the old dithering and gives crisp edges.
+* Each sprite is upscaled together with the table art around it, so its edges blend into the table,
+  and its transparency mask follows the original pixel grid so the game's depth sorting lines up.
+* Small lettering that the anime model breaks apart (CINEMATRONICS, MAXIS) is redone with the
+  general x4plus model, rebuilt as solid smooth letters and blended in. The boxes are listed in
+  `TEXT_REGIONS` at the top of the script.
 
 ```
 pip install -r tools/hdpack/requirements.txt
+pip install torch spandrel onnx   # only to create the .onnx models once
+python tools/hdpack/export_models.py
 python tools/hdpack/make_hd_pack.py path/to/PINBALL.DAT --scale 4
 ```
 
