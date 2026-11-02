@@ -15,8 +15,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = {
     # Crisp, flat-shaded look for the table art.
     "realesrgan_x4_anime6b": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth",
-    # Smoother general model, keeps small lettering readable.
-    "realesrgan_x4plus": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
 }
 
 

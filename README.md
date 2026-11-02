@@ -45,9 +45,10 @@ upscales every sprite 4x with Real-ESRGAN (ONNX, CPU only, BSD-3, see
 * The anime 6B model does the artwork: it removes the old dithering and gives crisp edges.
 * Each sprite is upscaled together with the table art around it, so its edges blend into the table,
   and its transparency mask follows the original pixel grid so the game's depth sorting lines up.
-* Small lettering that the anime model breaks apart (CINEMATRONICS, MAXIS) is redone with the
-  general x4plus model, rebuilt as solid smooth letters and blended in. The boxes are listed in
-  `TEXT_REGIONS` at the top of the script.
+* The small CINEMATRONICS and MAXIS logos are too few pixels for any upscaler, so the tool paints
+  over the old letters and draws the words fresh in Inter ExtraBold Italic (SIL OFL, see
+  `tools/hdpack/OFL.txt`), fitted to where the old letters were. The boxes are listed in
+  `LOGO_TEXT` at the top of the script.
 
 ```
 pip install -r tools/hdpack/requirements.txt
