@@ -5,10 +5,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Builds from main also publish the "latest" release, so this link always gets the newest version:
+# https://github.com/Paulrizzoli/Pinball-wizz/releases/latest/download/PinballWizz-Windows-x64.zip
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   windows-x64:
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     env:
       SDL2_VERSION: 2.30.9
       SDL2_MIXER_VERSION: 2.8.0
@@ -81,3 +89,18 @@ jobs:
         with:
           name: PinballWizz-Windows-x64
           path: package/PinballWizz
+
+      - name: Publish latest release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Compress-Archive -Path package/PinballWizz -DestinationPath PinballWizz-Windows-x64.zip -Force
+          $notes = "Newest build from main ($($env:GITHUB_SHA.Substring(0,7))). " +
+                   "Unzip, copy in your own game files, run MakeHDPack.exe, then SpaceCadetPinball.exe. " +
+                   "See HOW-TO-PLAY-IN-HD.txt inside the zip."
+          gh release view latest *> $null
+          if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
+          gh release create latest PinballWizz-Windows-x64.zip --target $env:GITHUB_SHA `
+            --title "Pinball Wizz (latest build)" --notes $notes --latest

@@ -14,5 +14,11 @@ This download does not include any of the original game's files. You need your o
 
 To go back to the original look, rename or delete the HD folder.
 
+UPDATING
+The newest version is always at:
+    https://github.com/Paulrizzoli/Pinball-wizz/releases/latest/download/PinballWizz-Windows-x64.zip
+Copy the new SpaceCadetPinball.exe and MakeHDPack.exe over the old ones (your game files stay put),
+delete the HD folder, and run MakeHDPack.exe again so it picks up any art improvements.
+
 Tip: Options > Linear Filtering on gives the smoothest result when the window isn't an exact
 multiple of the HD size.
