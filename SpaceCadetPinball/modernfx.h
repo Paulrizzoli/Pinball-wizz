@@ -26,6 +26,9 @@ public:
 	// Widescreen layout: when the window is wider than the game, returns where the full vScreen would be
 	// drawn so that the table alone fills the height, plus the free areas left and right of the table.
 	static bool WideLayout(SDL_Rect& screenRect, SDL_Rect& left, SDL_Rect& right);
+	// Wide layout only: moves a rect in 1x vScreen pixels from the sidebar to where the enlarged panels
+	// show it on screen, and gives the scale used. Returns false when not in the wide layout.
+	static bool MapPanelRect(SDL_Rect& rect, float& scale);
 	// Blurred, dimmed copy of the table behind everything (widescreen only).
 	static void DrawAmbient(SDL_Texture* screenTexture, bool wide);
 	// Trail and sparks, drawn over the table (board transform).

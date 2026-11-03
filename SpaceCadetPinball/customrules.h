@@ -28,6 +28,8 @@ private:
 	{
 		std::vector<bool> Done;
 		int Hits = 0;
+		bool Running = false; // missions: started and not finished yet
+		int Timer = 0;        // missions with a time limit
 	};
 
 	static TPinballTable* Table;
@@ -42,6 +44,11 @@ private:
 	static void Drained();
 	static void PartHit(TPinballComponent* part);
 	static void Complete(size_t groupIndex);
+	static void StartMission(size_t groupIndex);
+	static void EndMission(size_t groupIndex, bool failed);
+	static void EndMissions();
+	static void MissionTimeUp(int timerId, void* caller);
+	static void Multiball();
 	static void SetLight(int group, bool on);
 	static void FlashLight(int group, float seconds);
 	static void ShowMultiplierLights();

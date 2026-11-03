@@ -1,0 +1,772 @@
+{
+  "format": "pinball-wizz-table",
+  "version": 1,
+  "name": "Night Orbit",
+  "author": "Pinball Wizz",
+  "playfield": {
+    "width": 16,
+    "length": 29,
+    "color": "#141a3d",
+    "color2": "#04050d",
+    "decor": "space",
+    "planetX": 1.2,
+    "planetY": 3.6,
+    "nameY": 5.9
+  },
+  "theme": {
+    "name": "Deep Space",
+    "walls": "#a9b8ff",
+    "rubber": "#e8ecff",
+    "accent": "#ff4fd8",
+    "accent2": "#4dfcff",
+    "cabinet": "#121226",
+    "panel": "#07070f"
+  },
+  "ballsPerGame": 3,
+  "parts": [
+    {
+      "type": "wall",
+      "id": "outer wall",
+      "points": [
+        [
+          -7.6,
+          14.5
+        ],
+        [
+          -7.6,
+          -7.0
+        ],
+        [
+          -7.535,
+          -7.914
+        ],
+        [
+          -7.341,
+          -8.812
+        ],
+        [
+          -7.021,
+          -9.679
+        ],
+        [
+          -6.582,
+          -10.5
+        ],
+        [
+          -6.029,
+          -11.261
+        ],
+        [
+          -5.374,
+          -11.95
+        ],
+        [
+          -4.627,
+          -12.553
+        ],
+        [
+          -3.8,
+          -13.062
+        ],
+        [
+          -2.908,
+          -13.467
+        ],
+        [
+          -1.967,
+          -13.761
+        ],
+        [
+          -0.992,
+          -13.94
+        ],
+        [
+          -0.0,
+          -14.0
+        ],
+        [
+          0.992,
+          -13.94
+        ],
+        [
+          1.967,
+          -13.761
+        ],
+        [
+          2.908,
+          -13.467
+        ],
+        [
+          3.8,
+          -13.062
+        ],
+        [
+          4.627,
+          -12.553
+        ],
+        [
+          5.374,
+          -11.95
+        ],
+        [
+          6.029,
+          -11.261
+        ],
+        [
+          6.582,
+          -10.5
+        ],
+        [
+          7.021,
+          -9.679
+        ],
+        [
+          7.341,
+          -8.812
+        ],
+        [
+          7.535,
+          -7.914
+        ],
+        [
+          7.6,
+          -7.0
+        ],
+        [
+          7.6,
+          14.5
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "shooter lane wall",
+      "points": [
+        [
+          6.6,
+          14.5
+        ],
+        [
+          6.6,
+          -6.0
+        ]
+      ]
+    },
+    {
+      "type": "gate",
+      "id": "shooter gate",
+      "points": [
+        [
+          6.6,
+          -6.0
+        ],
+        [
+          7.55,
+          -6.9
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "left inlane guide",
+      "points": [
+        [
+          -7.6,
+          7.5
+        ],
+        [
+          -3.35,
+          11.75
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "right inlane guide",
+      "points": [
+        [
+          6.6,
+          7.5
+        ],
+        [
+          2.35,
+          11.75
+        ]
+      ]
+    },
+    {
+      "type": "slingshot",
+      "id": "left slingshot",
+      "points": [
+        [
+          -6,
+          6.6
+        ],
+        [
+          -6,
+          8.9
+        ],
+        [
+          -4.4,
+          10.3
+        ]
+      ]
+    },
+    {
+      "type": "slingshot",
+      "id": "right slingshot",
+      "points": [
+        [
+          5,
+          6.6
+        ],
+        [
+          3.4,
+          10.3
+        ],
+        [
+          5,
+          8.9
+        ]
+      ]
+    },
+    {
+      "type": "flipper",
+      "side": "left",
+      "x": -3.1,
+      "y": 12.0,
+      "length": 2.2
+    },
+    {
+      "type": "flipper",
+      "side": "right",
+      "x": 2.1,
+      "y": 12.0,
+      "length": 2.2
+    },
+    {
+      "type": "plunger",
+      "x": 7.1,
+      "y": 13.2,
+      "width": 0.7
+    },
+    {
+      "type": "drain",
+      "y": 14.25,
+      "x0": -7.6,
+      "x1": 6.6
+    },
+    {
+      "type": "wall",
+      "id": "orbit wall",
+      "points": [
+        [
+          -5.6,
+          3.2
+        ],
+        [
+          -5.6,
+          -5.4
+        ],
+        [
+          -5.9,
+          -6.8
+        ]
+      ],
+      "thickness": 0.3
+    },
+    {
+      "type": "post",
+      "id": "orbit post",
+      "x": -5.6,
+      "y": 3.2,
+      "radius": 0.25
+    },
+    {
+      "type": "spinner",
+      "id": "orbit spinner",
+      "x": -6.6,
+      "y": -1.0,
+      "width": 1.6,
+      "angle": 0,
+      "score": 100
+    },
+    {
+      "type": "lane",
+      "id": "orbit switch",
+      "points": [
+        [
+          -7.5,
+          -4.6
+        ],
+        [
+          -5.75,
+          -4.6
+        ]
+      ],
+      "score": 1000,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "orbit light",
+      "x": -6.6,
+      "y": 1.9,
+      "radius": 0.32,
+      "shape": "arrow",
+      "angle": -90,
+      "color": "#4dfcff",
+      "label": "ORBIT"
+    },
+    {
+      "type": "wall",
+      "id": "top guide -3",
+      "points": [
+        [
+          -3.0,
+          -12.682
+        ],
+        [
+          -3.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide -1",
+      "points": [
+        [
+          -1.0,
+          -13.189
+        ],
+        [
+          -1.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide 1",
+      "points": [
+        [
+          1.0,
+          -13.189
+        ],
+        [
+          1.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide 3",
+      "points": [
+        [
+          3.0,
+          -12.682
+        ],
+        [
+          3.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "lane",
+      "id": "top lane 1",
+      "points": [
+        [
+          -2.85,
+          -11.8
+        ],
+        [
+          -1.15,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "top lane light 1",
+      "x": -2.0,
+      "y": -10.2,
+      "radius": 0.3,
+      "shape": "arrow",
+      "angle": -90,
+      "color": "#ffd23f"
+    },
+    {
+      "type": "lane",
+      "id": "top lane 2",
+      "points": [
+        [
+          -0.85,
+          -11.8
+        ],
+        [
+          0.85,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "top lane light 2",
+      "x": 0.0,
+      "y": -10.2,
+      "radius": 0.3,
+      "shape": "arrow",
+      "angle": -90,
+      "color": "#ffd23f"
+    },
+    {
+      "type": "lane",
+      "id": "top lane 3",
+      "points": [
+        [
+          1.15,
+          -11.8
+        ],
+        [
+          2.85,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "top lane light 3",
+      "x": 2.0,
+      "y": -10.2,
+      "radius": 0.3,
+      "shape": "arrow",
+      "angle": -90,
+      "color": "#ffd23f"
+    },
+    {
+      "type": "bumper",
+      "id": "bumper 1",
+      "x": -2.0,
+      "y": -7.6,
+      "radius": 0.62
+    },
+    {
+      "type": "bumper",
+      "id": "bumper 2",
+      "x": 2.0,
+      "y": -7.6,
+      "radius": 0.62
+    },
+    {
+      "type": "bumper",
+      "id": "bumper 3",
+      "x": 0.0,
+      "y": -5.2,
+      "radius": 0.62
+    },
+    {
+      "type": "kickout",
+      "id": "launch hole",
+      "x": -4.3,
+      "y": -9.6,
+      "radius": 0.45,
+      "angle": 55,
+      "strength": 1.0,
+      "color": "#ff4fd8",
+      "score": 2500
+    },
+    {
+      "type": "light",
+      "id": "launch light",
+      "x": -3.75,
+      "y": -8.25,
+      "radius": 0.3,
+      "shape": "arrow",
+      "angle": -112,
+      "color": "#ff4fd8",
+      "label": "LAUNCH"
+    },
+    {
+      "type": "drop",
+      "id": "drop 1",
+      "x": -2.6,
+      "y": -1.6,
+      "width": 0.9,
+      "angle": 90,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "light",
+      "id": "drop light 1",
+      "x": -2.6,
+      "y": -0.6,
+      "radius": 0.22,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "drop",
+      "id": "drop 2",
+      "x": -1.5,
+      "y": -1.6,
+      "width": 0.9,
+      "angle": 90,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "light",
+      "id": "drop light 2",
+      "x": -1.5,
+      "y": -0.6,
+      "radius": 0.22,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "drop",
+      "id": "drop 3",
+      "x": -0.4,
+      "y": -1.6,
+      "width": 0.9,
+      "angle": 90,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "light",
+      "id": "drop light 3",
+      "x": -0.4,
+      "y": -0.6,
+      "radius": 0.22,
+      "color": "#ff4fd8"
+    },
+    {
+      "type": "ramp",
+      "id": "right ramp",
+      "points": [
+        [
+          3.3,
+          1.2
+        ],
+        [
+          4.1,
+          -2.4
+        ],
+        [
+          4.9,
+          -6.0
+        ],
+        [
+          5.0,
+          -8.0
+        ],
+        [
+          4.4,
+          -9.6
+        ]
+      ],
+      "width": 1.3,
+      "color": "#4dfcff",
+      "score": 5000,
+      "bonus": 2000
+    },
+    {
+      "type": "light",
+      "id": "ramp light 1",
+      "x": 2.4,
+      "y": -0.4,
+      "radius": 0.2,
+      "color": "#4dfcff"
+    },
+    {
+      "type": "light",
+      "id": "ramp light 2",
+      "x": 2.7,
+      "y": -1.5,
+      "radius": 0.2,
+      "color": "#4dfcff"
+    },
+    {
+      "type": "light",
+      "id": "ramp light 3",
+      "x": 3.0,
+      "y": -2.6,
+      "radius": 0.2,
+      "color": "#4dfcff"
+    },
+    {
+      "type": "light",
+      "id": "ramp light 4",
+      "x": 3.3,
+      "y": -3.7,
+      "radius": 0.2,
+      "color": "#4dfcff"
+    },
+    {
+      "type": "light",
+      "id": "ramp light 5",
+      "x": 3.6,
+      "y": -4.8,
+      "radius": 0.2,
+      "color": "#4dfcff"
+    },
+    {
+      "type": "light",
+      "id": "mult 2X",
+      "x": -2.0,
+      "y": 8.0,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "2X"
+    },
+    {
+      "type": "light",
+      "id": "mult 3X",
+      "x": -1.0,
+      "y": 8.0,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "3X"
+    },
+    {
+      "type": "light",
+      "id": "mult 5X",
+      "x": 0.0,
+      "y": 8.0,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "5X"
+    },
+    {
+      "type": "light",
+      "id": "mult 10X",
+      "x": 1.0,
+      "y": 8.0,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "10X"
+    },
+    {
+      "type": "light",
+      "id": "shoot again",
+      "x": -0.5,
+      "y": 10.2,
+      "radius": 0.36,
+      "color": "#ff5a3c",
+      "label": "SHOOT AGAIN",
+      "labelSize": 0.26
+    }
+  ],
+  "rules": {
+    "ballSave": 8,
+    "extraBallLight": "shoot again",
+    "multiplierLights": [
+      "mult 2X",
+      "mult 3X",
+      "mult 5X",
+      "mult 10X"
+    ],
+    "groups": [
+      {
+        "name": "ORBIT LANES",
+        "parts": [
+          "top lane 1",
+          "top lane 2",
+          "top lane 3"
+        ],
+        "lights": [
+          "top lane light 1",
+          "top lane light 2",
+          "top lane light 3"
+        ],
+        "score": 3000,
+        "bonus": 3000,
+        "award": "multiplier"
+      },
+      {
+        "name": "DROP TARGETS",
+        "parts": [
+          "drop 1",
+          "drop 2",
+          "drop 3"
+        ],
+        "lights": [
+          "drop light 1",
+          "drop light 2",
+          "drop light 3"
+        ],
+        "score": 10000,
+        "bonus": 5000,
+        "award": "startMission",
+        "startsMission": "LAUNCH"
+      },
+      {
+        "name": "LAUNCH",
+        "mission": true,
+        "time": 30,
+        "hint": "SHOOT THE HOLE",
+        "parts": [
+          "launch hole"
+        ],
+        "lights": [
+          "launch light"
+        ],
+        "score": 50000,
+        "bonus": 10000,
+        "award": "extraBall",
+        "message": "LAUNCH COMPLETE"
+      },
+      {
+        "name": "RAMP",
+        "parts": [
+          "right ramp"
+        ],
+        "hits": 5,
+        "lights": [
+          "ramp light 1",
+          "ramp light 2",
+          "ramp light 3",
+          "ramp light 4",
+          "ramp light 5"
+        ],
+        "score": 25000,
+        "award": "multiball",
+        "message": "ORBIT MULTIBALL"
+      },
+      {
+        "name": "ORBIT",
+        "parts": [
+          "orbit switch"
+        ],
+        "hits": 3,
+        "lights": [
+          "orbit light"
+        ],
+        "score": 15000,
+        "bonus": 5000
+      },
+      {
+        "name": "BUMPERS",
+        "parts": [
+          "bumper 1",
+          "bumper 2",
+          "bumper 3"
+        ],
+        "hits": 25,
+        "lights": [],
+        "score": 20000,
+        "message": "STAR CLUSTER"
+      }
+    ]
+  }
+}

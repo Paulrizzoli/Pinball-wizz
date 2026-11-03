@@ -12,6 +12,10 @@
 #include "TPlunger.h"
 #include "TTextBox.h"
 #include "translations.h"
+#include "timer.h"
+#include "TKickout.h"
+#include "TPopupTarget.h"
+#include "TTripwire.h"
 
 TPinballTable* customrules::Table = nullptr;
 bool customrules::LastBall = false;
@@ -25,6 +29,9 @@ std::map<int, TPinballComponent*> customrules::Parts;
 namespace
 {
 	const int Multipliers[5] = {1, 2, 3, 5, 10};
+
+	// When each lane switch last counted, so a ball rolling along one only counts once.
+	std::map<TPinballComponent*, float> LaneHitTimes;
 
 	std::string Thousands(int value)
 	{
@@ -60,11 +67,22 @@ void customrules::Detach()
 {
 	Table = nullptr;
 	Parts.clear();
+	LaneHitTimes.clear();
+	timer::kill(MissionTimeUp);
+	for (auto& player : Groups)
+		for (auto& state : player)
+			state.Timer = 0;
 }
 
 void customrules::ResetGroups(int player)
 {
 	auto& groups = Groups[player];
+	// A mission still running from the last game must not time out in the new one.
+	for (auto& state : groups)
+	{
+		if (state.Timer)
+			timer::kill(state.Timer);
+	}
 	groups.clear();
 	for (auto& group : customtable::Rules.Groups)
 	{
@@ -82,8 +100,12 @@ void customrules::Info(const std::string& text, float seconds)
 
 void customrules::Mission(const std::string& text, float seconds)
 {
+	// The newest message replaces the one showing, so quick hits don't build up a queue.
 	if (pb::MissTextBox)
+	{
+		pb::MissTextBox->Clear();
 		pb::MissTextBox->Display(text.c_str(), seconds);
+	}
 }
 
 void customrules::SetLight(int group, bool on)
@@ -150,6 +172,13 @@ void customrules::Handler(MessageCode code, TPinballComponent* caller)
 
 void customrules::PartHit(TPinballComponent* part)
 {
+	if (dynamic_cast<TTripwire*>(part))
+	{
+		auto last = LaneHitTimes.find(part);
+		if (last != LaneHitTimes.end() && pb::time_now - last->second < 0.4f && pb::time_now >= last->second)
+			return;
+		LaneHitTimes[part] = pb::time_now;
+	}
 	if (BallStartTime < 0)
 		BallStartTime = pb::time_now;
 	auto index = part->GroupIndex;
@@ -166,6 +195,8 @@ void customrules::PartHit(TPinballComponent* part)
 	{
 		auto& rule = rules[g];
 		auto& state = states[g];
+		if (rule.IsMission && !state.Running)
+			continue;
 		for (size_t i = 0; i < rule.Parts.size(); i++)
 		{
 			if (rule.Parts[i] != index)
@@ -199,6 +230,10 @@ void customrules::PartHit(TPinballComponent* part)
 			break;
 		}
 	}
+
+	// A kickout hole holds the ball for a moment, then kicks it out.
+	if (dynamic_cast<TKickout*>(part))
+		part->Message(MessageCode::TKickoutRestartTimer, -1.0f);
 }
 
 void customrules::Complete(size_t groupIndex)
@@ -207,8 +242,17 @@ void customrules::Complete(size_t groupIndex)
 	auto& state = Groups[ActivePlayer][groupIndex];
 	state.Done.assign(state.Done.size(), false);
 	state.Hits = 0;
+	if (rule.IsMission)
+		EndMission(groupIndex, false);
 	for (auto light : rule.Lights)
 		FlashLight(light, 1.5f);
+	// Drop targets come back up for the next round.
+	for (auto partGroup : rule.Parts)
+	{
+		auto it = Parts.find(partGroup);
+		if (it != Parts.end() && dynamic_cast<TPopupTarget*>(it->second))
+			it->second->Message(MessageCode::TPopupTargetEnable, 0.0f);
+	}
 
 	auto added = rule.Score > 0 ? Table->AddScore(rule.Score) : 0;
 	BallBonus += rule.Bonus;
@@ -227,10 +271,30 @@ void customrules::Complete(size_t groupIndex)
 		award = "EXTRA BALL";
 		SetLight(customtable::Rules.ExtraBallLight, true);
 	}
+	else if (rule.Award == "multiball")
+	{
+		if (Table->MultiballCount <= 1)
+		{
+			Multiball();
+			award = "MULTIBALL";
+		}
+	}
+	else if (rule.Award == "startMission" && rule.StartsMission >= 0)
+	{
+		auto& other = Groups[ActivePlayer][rule.StartsMission];
+		if (!other.Running)
+		{
+			StartMission(static_cast<size_t>(rule.StartsMission));
+			return; // the mission's own message is shown instead
+		}
+	}
 
 	auto message = rule.Message.empty() ? rule.Name + " COMPLETE" : rule.Message;
 	if (!award.empty())
-		message += "\n" + award;
+	{
+		if (message.find(award) == std::string::npos)
+			message += "\n" + award;
+	}
 	else if (added > 0)
 		message += "\n" + Thousands(added);
 	Mission(message, 3.0f);
@@ -261,6 +325,7 @@ void customrules::Drained()
 	}
 	BallSaved = false;
 	BallStartTime = -1;
+	EndMissions();
 
 	// End-of-ball bonus, times the multiplier.
 	if (!Table->TiltLockFlag && BallBonus > 0)
@@ -341,4 +406,86 @@ void customrules::UnstuckBall(TBall& ball, int dt)
 		Table->MultiballCount--;
 		Table->Plunger->Message(MessageCode::PlungerRelaunchBall, 0);
 	}
+}
+
+void customrules::StartMission(size_t groupIndex)
+{
+	auto& rule = customtable::Rules.Groups[groupIndex];
+	auto& state = Groups[ActivePlayer][groupIndex];
+	state.Running = true;
+	state.Done.assign(state.Done.size(), false);
+	state.Hits = 0;
+	for (auto light : rule.Lights)
+	{
+		auto it = Parts.find(light);
+		if (it != Parts.end())
+			it->second->Message(MessageCode::TLightFlasherStart, 0.0f);
+	}
+	if (state.Timer)
+		timer::kill(state.Timer);
+	state.Timer = 0;
+	if (rule.Time > 0)
+		state.Timer = timer::set(rule.Time, reinterpret_cast<void*>(groupIndex + 1), MissionTimeUp);
+	auto text = rule.Name;
+	if (!rule.Hint.empty())
+		text += "\n" + rule.Hint;
+	Mission(text, 4.0f);
+}
+
+void customrules::EndMission(size_t groupIndex, bool failed)
+{
+	auto& rule = customtable::Rules.Groups[groupIndex];
+	auto& state = Groups[ActivePlayer][groupIndex];
+	if (!state.Running)
+		return;
+	state.Running = false;
+	if (state.Timer)
+		timer::kill(state.Timer);
+	state.Timer = 0;
+	state.Done.assign(state.Done.size(), false);
+	state.Hits = 0;
+	if (failed)
+	{
+		for (auto light : rule.Lights)
+			SetLight(light, false);
+		Mission(rule.Name + "\nTIME UP", 2.5f);
+	}
+}
+
+void customrules::EndMissions()
+{
+	auto& rules = customtable::Rules.Groups;
+	for (size_t g = 0; g < rules.size() && g < Groups[ActivePlayer].size(); g++)
+	{
+		if (Groups[ActivePlayer][g].Running)
+		{
+			EndMission(g, false);
+			for (auto light : rules[g].Lights)
+				SetLight(light, false);
+		}
+	}
+}
+
+void customrules::MissionTimeUp(int timerId, void* caller)
+{
+	auto groupIndex = reinterpret_cast<size_t>(caller) - 1;
+	if (!Table || groupIndex >= Groups[ActivePlayer].size())
+		return;
+	// The timer has fired; forget it before ending so it isn't killed twice.
+	Groups[ActivePlayer][groupIndex].Timer = 0;
+	EndMission(groupIndex, true);
+}
+
+void customrules::Multiball()
+{
+	// A second ball shot from the plunger lane.
+	auto pos = Table->PlungerPosition;
+	if (Table->BallCountInRect(pos, Table->CollisionCompOffset * 1.2f))
+		return;
+	auto ball = Table->AddBall(pos);
+	if (!ball)
+		return;
+	Table->MultiballCount++;
+	vector3 up{0.0f, -1.0f, 0.0f};
+	ball->throw_ball(&up, 0.0f, 32.0f, 0.0f);
 }

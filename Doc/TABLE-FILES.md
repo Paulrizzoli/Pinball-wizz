@@ -8,12 +8,13 @@ A table is a `.pwtable` file in the `Tables` folder next to the game. It is plai
 **Table > New Table** makes `My Table.pwtable` from a simple starter layout and opens the editor.
 **Table > Edit This Table** opens the table being played. In the editor:
 
-- Click a part to select it, drag it to move it. Walls, slingshots and lane switches show white points that
-  can be dragged to reshape them; walls can gain or lose points.
+- Click a part to select it, drag it to move it. Walls, slingshots, lane switches, ramps and gates show
+  white points that can be dragged to reshape them; walls and ramps can gain or lose points.
 - The left column adds parts (they appear in the middle of the view), copies or deletes the selected part.
 - The right column changes the selected part, or the table's name and look when nothing is selected:
-  pick a ready-made **Theme** (colour set) or change each colour, and choose a **Picture** for the
-  playfield from the PNG/JPG files in the table's folder.
+  pick a ready-made **Theme** (colour set) or change each colour, choose a **Picture** for the
+  playfield from the PNG/JPG files in the table's folder, or a painted **Pattern** (grid, or stars and a
+  planet).
 - The **Rules** tab sets up groups of parts (see Rules below), the shoot-again and multiplier lights and the
   ball save. **Pick on the table** adds parts and lights to a group by clicking them; a group's parts show
   in green and its lights in yellow.
@@ -33,7 +34,7 @@ player. The default playfield is 16 wide and 29 long.
 | --- | --- |
 | `format`, `version` | Always `"pinball-wizz-table"` and `1`. |
 | `name`, `author` | Shown in the picker and on the score panel. |
-| `playfield` | `width`, `length`, `color`, `color2` (gradient), `image` (a PNG or JPG in the zip, or next to the table file; it replaces the painted playfield), `nameX`, `nameY`. |
+| `playfield` | `width`, `length`, `color`, `color2` (gradient), `image` (a PNG or JPG in the zip, or next to the table file; it replaces the painted playfield), `decor` (`grid` or `space`: stars, glows and a ringed planet at `planetX`, `planetY`), `nameX`, `nameY`. |
 | `theme` | Colours: `walls`, `rubber`, `accent`, `accent2`, `cabinet`, `panel`, `metal`, `ball`, `display`; `name` is the theme picked in the editor. |
 | `ballsPerGame` | 1 to 9, default 3. |
 | `parts` | The parts, below. Give a part an `id` to use it in rules. |
@@ -53,6 +54,11 @@ player. The default playfield is 16 wide and 29 long.
 | `lane` | `points` (the 2 ends of the switch line), `score`, `bonus` |
 | `target` | `x`, `y`, `width`, `angle` (direction the face looks, degrees), `color`, `score`, `bonus` |
 | `light` | `x`, `y`, `radius`, `shape` (circle/arrow), `angle` (arrow), `color`, `label` |
+| `drop` | Drop target: `x`, `y`, `width`, `angle` (direction the face looks), `popup` (seconds before it can come back), `strength`, `color`, `score`, `bonus`. It drops when hit and comes back up when its rules group is complete. |
+| `kickout` | Kickout hole: `x`, `y`, `radius`, `angle` (direction it kicks the ball, degrees), `strength`, `color`, `score`, `bonus`. It holds the ball for a moment, then kicks it out. |
+| `spinner` | `x`, `y`, `width`, `angle` (turn of the spinner, degrees), `friction` (lower spins longer), `color`, `score` (per turn), `bonus` |
+| `ramp` | `points` (the path; the ball enters at the first point), `width`, `color` (floor), `railColor`, `score`, `bonus`. It counts when the ball leaves the far end; a flap there stops balls rolling in backwards. |
+| `gate` | One-way gate: `points` (2 ends), `color`, `score`. The ball passes from the right-hand side looking from the first point to the second, and is stopped the other way. |
 
 `bonus` is added to the end-of-ball bonus each time the part is hit.
 
@@ -72,11 +78,32 @@ player. The default playfield is 16 wide and 29 long.
 }
 ```
 
+A mission, as on Night Orbit:
+
+```json
+{"name": "DROP TARGETS", "parts": ["drop 1", "drop 2", "drop 3"], "award": "startMission",
+ "startsMission": "LAUNCH"},
+{"name": "LAUNCH", "mission": true, "time": 30, "hint": "SHOOT THE HOLE", "parts": ["launch hole"],
+ "lights": ["launch light"], "score": 50000, "award": "extraBall"}
+```
+
 - A group is complete when every part in it has been hit (or after `hits` hits on any of its parts).
   Its lights show progress, then flash and reset.
-- `award`: `none`, `multiplier` (bonus and scoring multiplier 2X, 3X, 5X, 10X for the rest of the ball) or
-  `extraBall`.
+- `award`: `none`, `multiplier` (bonus and scoring multiplier 2X, 3X, 5X, 10X for the rest of the ball),
+  `extraBall`, `multiball` (a second ball is launched; not while a multiball is already running) or
+  `startMission` (starts the mission group named in `startsMission`).
+- A group with `"mission": true` is a mission: it only counts while running. It is started by another
+  group's `startMission` award, shows its `name` and `hint`, flashes its lights, and must be completed
+  within `time` seconds (0: no limit) or before the ball ends, else it shows TIME UP. Completing it gives
+  its own score and award.
 - `ballSave`: seconds after a ball's first hit in which a drained ball is given back, once per ball (a ball
   that drains before hitting anything is given back too). 0 or missing: off.
 - A group with no parts yet is ignored.
 - At the end of each ball the bonus is scored, times the multiplier, and the multiplier resets.
+
+## Night Orbit
+
+`Tables/Night Orbit.pwtable` is the starter table that ships with the game, made with the editor: an
+original deep-space layout with a left orbit (spinner and switch), a right ramp, three bumpers, three top
+lanes, a bank of three drop targets that starts the LAUNCH mission at the kickout hole, and 2-ball
+multiball after five ramp shots. Open it with **Table > Edit This Table** to see how it is put together.
