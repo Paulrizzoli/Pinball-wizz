@@ -107,3 +107,12 @@ A mission, as on Night Orbit:
 original deep-space layout with a left orbit (spinner and switch), a right ramp, three bumpers, three top
 lanes, a bank of three drop targets that starts the LAUNCH mission at the kickout hole, and 2-ball
 multiball after five ramp shots. Open it with **Table > Edit This Table** to see how it is put together.
+
+## Skatepark
+
+`Tables/Skatepark.pwtable` is a second original table, with its own painted playfield picture
+(`Tables/Skatepark.jpg`, drawn by `tools/tables/make_skatepark.py`, which also writes the table file). It has
+a concrete bowl with three traffic-cone bumpers, S-K-8 top lanes, a halfpipe orbit with a wheel spinner, a
+mega ramp (four shots start SESSION MULTIBALL), a grind rail up the middle, a DECK bank of four drop targets
+that starts the DROP IN mission at the bowl hole (extra ball), and KICK and FLIP targets that start the GRIND
+mission (shoot the rail within 25 seconds).
