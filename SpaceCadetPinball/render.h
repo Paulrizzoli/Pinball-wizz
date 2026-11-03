@@ -37,6 +37,8 @@ struct render_sprite
 	gdrv_bitmap8* OffSrcBmp{};
 	zmap_header_type* OffZMap{};
 	int OffX{}, OffY{};
+	// Drawn as a real 3D model instead (models3d): the sprite paints nothing, not even depth.
+	bool Hidden{};
 
 	render_sprite(VisualTypes visualType, gdrv_bitmap8* bmp, zmap_header_type* zMap,
 	              int xPosition, int yPosition, rectangle_type* boundingRect);
@@ -68,6 +70,7 @@ public:
 	static gdrv_bitmap8* GetTableBitmap();
 	static const std::vector<render_sprite*>& GetBalls() { return ball_list; }
 	static uint16_t DepthAt(int x, int y);
+	static zmap_header_type* GetZScreen() { return zscreen; }
 	static void GetScreenTransform(float& x, float& y, float& scaleX, float& scaleY);
 	static void GetBoardTransform(float& x, float& y, float& scaleX, float& scaleY, SDL_Rect& clip);
 private:

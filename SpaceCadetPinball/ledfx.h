@@ -69,6 +69,14 @@ public:
 	// Lamp colour of a light bitmap (average lit colour); false when it has no lamp light.
 	static bool LampColor(gdrv_bitmap8* bmp, int xPos, int yPos, uint8_t color[3]);
 
+	// Lit lamps (and lit bumpers) right now: centre in 1x vScreen pixels, strength 0..1 and colour.
+	struct LitLamp
+	{
+		float X, Y, Strength;
+		uint8_t Color[3];
+	};
+	static void LitLamps(std::vector<LitLamp>& out);
+
 	// Repaints all lights after the LED option changes.
 	static void SettingsChanged();
 

@@ -61,6 +61,25 @@ Options > Graphics has these switches (all on by default, with or without an HD 
 All of it is computed at runtime from the player's own table art (`SpaceCadetPinball/ledfx.cpp`);
 game logic is unchanged.
 
+## 3D models
+
+The **3D models** switch in the Settings window (on by default) draws the ball, the flippers and, on custom tables, the bumpers, posts and
+ramp rails as real 3D models (`SpaceCadetPinball/models3d.cpp`):
+
+- The table art is a picture taken with the game's own camera (`proj.cpp`). The models are placed at their physics
+  positions in table space and drawn with that same camera, so they sit exactly where the art expects them.
+- They are rendered in software at the window's resolution (up to 4x) with per-pixel lighting: a key light from the
+  upper left like the art, a fill light, and the table's lit lamps, whose colour falls on nearby parts.
+- **Reflections**: the ball is a ray-traced chrome sphere that mirrors the live table under it (lamps included) and
+  the room above; plastics pick up a little reflection at grazing angles.
+- **Shadows**: every model casts a soft shadow onto the table, away from the key light.
+- Models are depth-tested against the table's depth buffer, so ramps and wire forms still hide the ball exactly as
+  they hid the old sprite. Flippers turn smoothly at the physics angle instead of in sprite steps.
+- Physics and game logic are untouched. Space Cadet's bumpers stay as they are (they are detailed pre-rendered art,
+  larger than their physics circles); custom tables describe their parts, so theirs are modelled.
+- Static parts are only redrawn when the light on them changes, a few per frame, so the cost stays around a
+  millisecond a frame.
+
 ## Settings window and modern effects
 
 In the widescreen layout a big **Settings** button sits in the left panel, under the backglass. In a

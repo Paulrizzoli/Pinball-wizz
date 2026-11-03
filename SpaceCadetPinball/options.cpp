@@ -168,6 +168,9 @@ optionsStruct options::Options
 	{"Smooth Play", true},
 	{"HD Detail", 0},
 	{"Table File", ""},
+	{"3D Models", true},
+	{"3D Model Shadows", true},
+	{"3D Model Reflections", true},
 };
 
 void options::InitPrimary()

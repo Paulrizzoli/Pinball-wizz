@@ -310,4 +310,7 @@ struct optionsStruct
 	BoolOption SmoothPlay;
 	IntOption HdDetail; // 0 = auto, 1 = original art, 2..4 = HD pack scale
 	StringOption TableFile; // custom table (.pwtable) to play; empty = Space Cadet
+	BoolOption Models3D;     // real 3D ball, flippers, bumpers, posts and ramp rails (models3d)
+	BoolOption ModelShadows; // the 3D models cast shadows on the table
+	BoolOption ModelReflections; // chrome and plastic reflect the table and its lights
 };

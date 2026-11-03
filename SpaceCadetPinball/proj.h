@@ -29,6 +29,11 @@ public:
 	static vector3 ReverseXForm(const vector2i& vec);
 	static void recenter(float centerX, float centerY);
 	static uint16_t NormalizeDepth(float depth);
+	// Camera parameters, for drawing real 3D models with the table's own camera (models3d).
+	static const mat4_row_major& Matrix() { return matrix; }
+	static float FocalLength() { return d_; }
+	static float CenterX() { return centerx; }
+	static float CenterY() { return centery; }
 private:
 	static mat4_row_major matrix;
 	static float d_, centerx, centery;

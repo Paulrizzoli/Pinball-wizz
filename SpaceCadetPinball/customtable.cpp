@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "customtable.h"
+#include "models3d.h"
 
 #include "GroupData.h"
 #include "gdrv.h"
@@ -740,6 +741,11 @@ namespace
 		return true;
 	}
 
+	models3d::Color3 Model3DColor(const ArtColor& c)
+	{
+		return {c.R, c.G, c.B};
+	}
+
 	bool Builder::AddPost(const Value& part, std::string& error)
 	{
 		auto x = part["x"].Float(), y = part["y"].Float();
@@ -755,6 +761,7 @@ namespace
 
 		auto rubber = RubberMat(Rubber);
 		auto metal = Metal(PostColor);
+		models3d::Look.Posts.push_back({x, y, radius, Model3DColor(Rubber), Model3DColor(PostColor)});
 		Scenery.push_back([=](Art3D& art)
 		{
 			art.Cylinder(x, y, radius, 0.05f, 0.35f, ArtSolid(rubber), ArtSolid(rubber), 32);
@@ -845,6 +852,7 @@ namespace
 		auto strength = part["strength"].Float(1.0f);
 		auto color = Color(part["color"], Accent);
 		auto capColor = Color(part["capColor"], Accent2);
+		models3d::Look.Bumpers.push_back({x, y, r, Model3DColor(color), Model3DColor(capColor), Model3DColor(PostColor)});
 
 		StatefulPart sp;
 		sp.Main.ShortValue(200);
@@ -908,6 +916,9 @@ namespace
 		auto strength = part["strength"].Float(1.0f);
 		auto color = Color(part["color"], {0.95f, 0.95f, 0.97f});
 		auto rubberColor = Color(part["rubberColor"], Accent);
+		models3d::Look.FlipperBody = Model3DColor(color);
+		models3d::Look.FlipperRubber = Model3DColor(rubberColor);
+		models3d::Look.Metal = Model3DColor(PostColor);
 
 		auto dir = [&](float deg)
 		{
@@ -1430,6 +1441,20 @@ namespace
 		Objects.push_back({1024, group});
 		customtable::Scores[group] = part["score"].Int(5000);
 		customtable::Bonus[group] = part["bonus"].Int(2000);
+
+		for (auto side : {&left, &right})
+		{
+			models3d::RailModel rail;
+			for (auto& p : *side)
+			{
+				rail.Points.push_back(p.X);
+				rail.Points.push_back(p.Y);
+			}
+			rail.Z0 = 0.3f;
+			rail.Z1 = 0.42f;
+			rail.Metal = Model3DColor(railColor);
+			models3d::Look.Rails.push_back(rail);
+		}
 
 		auto floor = Plastic(color.Scaled(0.3f));
 		floor.Ambient = 0.6f;
@@ -2489,6 +2514,7 @@ DatFile* customtable::Load(const std::string& path, std::string& error)
 	       BuildScale);
 
 	Active = true;
+	models3d::Look.Custom = true;
 	Name = doc["name"].Str("Custom table");
 	Path = path;
 	BallsPerGame = std::max(1, std::min(9, doc["ballsPerGame"].Int(3)));
@@ -2536,6 +2562,7 @@ void customtable::ApplyHd()
 
 void customtable::Unload()
 {
+	models3d::ResetLook();
 	Active = false;
 	Name.clear();
 	Path.clear();

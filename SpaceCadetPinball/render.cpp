@@ -13,6 +13,7 @@
 #include "hdgfx.h"
 #include "ledfx.h"
 #include "modernfx.h"
+#include "models3d.h"
 
 std::vector<render_sprite*> render::sprite_list, render::ball_list;
 zmap_header_type* render::background_zmap;
@@ -149,6 +150,7 @@ void render::uninit()
 		delete ballBmp;
 	ledfx::Uninit();
 	modernfx::Uninit();
+	models3d::Uninit();
 	hdgfx::Unload();
 	DebugOverlay::UnInit();
 }
@@ -250,7 +252,7 @@ void render::repaint(const render_sprite& sprite)
 
 	for (auto refSprite : *sprite.OccludedSprites)
 	{
-		if (refSprite->DeleteFlag)
+		if (refSprite->DeleteFlag || refSprite->Hidden)
 			continue;
 
 		if (refSprite->IsLight && ledfx::Enabled())
@@ -395,7 +397,9 @@ void render::paint_balls()
 				static_cast<int>(shadowRX * 2) + 3, static_cast<int>(shadowRY * 2) + 3
 			};
 			rectangle_type saveRect = rect;
-			auto shadow = options::Options.BallShadow.V;
+			// 3D models: the ball is drawn as a real sphere over the table, so only the save area is kept.
+			auto model = models3d::DrawsBalls();
+			auto shadow = options::Options.BallShadow.V && !model;
 			if (shadow)
 			{
 				maths::enclosing_box(rect, shadowRect, saveRect);
@@ -411,19 +415,20 @@ void render::paint_balls()
 			if (shadow)
 				zdrv::paint_shadow(vscreen, zscreen, *dirty, shadowX, shadowY, shadowRX, shadowRY, ball->Depth,
 				                   0.55f);
-			zdrv::paint_flat(
-				ballClip.Width,
-				ballClip.Height,
-				vscreen,
-				ballClip.XPosition,
-				ballClip.YPosition,
-				zscreen,
-				ballClip.XPosition,
-				ballClip.YPosition,
-				ball->Bmp,
-				ballClip.XPosition - ball->BmpRect.XPosition,
-				ballClip.YPosition - ball->BmpRect.YPosition,
-				ball->Depth);
+			if (!model)
+				zdrv::paint_flat(
+					ballClip.Width,
+					ballClip.Height,
+					vscreen,
+					ballClip.XPosition,
+					ballClip.YPosition,
+					zscreen,
+					ballClip.XPosition,
+					ballClip.YPosition,
+					ball->Bmp,
+					ballClip.XPosition - ball->BmpRect.XPosition,
+					ballClip.YPosition - ball->BmpRect.YPosition,
+					ball->Depth);
 		}
 		else
 		{
@@ -688,6 +693,7 @@ void render::PresentVScreen()
 #endif
 	}
 
+	models3d::Draw();
 	ledfx::DrawGlow();
 	modernfx::DrawEffects();
 	if (!wide)

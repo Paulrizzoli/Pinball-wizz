@@ -554,9 +554,21 @@ void modernfx::RenderSettingsWindow()
 		ImGui::Checkbox("Light spill onto the table", &opt.LightSpill.V);
 		ImGui::Checkbox("Dot-matrix score display", &opt.DotMatrix.V);
 
+		heading("3D");
+		ImGui::Checkbox("3D models (ball, flippers, bumpers, posts and ramp rails)", &opt.Models3D.V);
+		ImGui::BeginDisabled(!opt.Models3D.V);
+		ImGui::Indent();
+		ImGui::Checkbox("Shadows from the 3D models", &opt.ModelShadows.V);
+		ImGui::Checkbox("Reflections (chrome ball mirrors the table and its lights)", &opt.ModelReflections.V);
+		ImGui::Unindent();
+		ImGui::EndDisabled();
+
 		heading("Ball and motion");
+		// The 3D ball has its own shadow and reflections; these are for the flat ball.
+		ImGui::BeginDisabled(opt.Models3D.V);
 		ImGui::Checkbox("Ball shadow", &opt.BallShadow.V);
 		ImGui::Checkbox("Ball light reflections", &opt.BallGlints.V);
+		ImGui::EndDisabled();
 		ImGui::Checkbox("Ball trail", &opt.BallTrail.V);
 		ImGui::Checkbox("Bumper flash and sparks", &opt.BumperSparks.V);
 		ImGui::Checkbox("Shake the table when nudging", &opt.NudgeShake.V);

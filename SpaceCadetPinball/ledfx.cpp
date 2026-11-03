@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ledfx.h"
+#include "models3d.h"
 
 #include "gdrv.h"
 #include "hdgfx.h"
@@ -721,10 +722,41 @@ void ledfx::DrawGlow()
 		}
 	}
 
-	if (glints)
+	// A 3D model ball reflects the lamps itself.
+	if (glints && !models3d::DrawsBalls())
 		DrawGlints(originX, originY, scaleX, scaleY);
 
 	SDL_RenderSetClipRect(winmain::Renderer, nullptr);
+}
+
+void ledfx::LitLamps(std::vector<LitLamp>& out)
+{
+	out.clear();
+	for (auto sprite : Lights)
+	{
+		if (sprite->DeleteFlag)
+			continue;
+		auto fade = Enabled() ? Ease(sprite->Fade) : 1.0f;
+		for (int layer = 0; layer < 2; layer++)
+		{
+			auto bmp = layer == 0 ? sprite->Bmp : (sprite->Fade < 1.0f ? sprite->PrevBmp : nullptr);
+			auto weight = layer == 0 ? fade : 1.0f - fade;
+			if (!bmp || weight <= 0.01f)
+				continue;
+			auto x = layer == 0 ? sprite->BmpRect.XPosition : sprite->PrevX;
+			auto y = layer == 0 ? sprite->BmpRect.YPosition : sprite->PrevY;
+			auto& info = Info(bmp, x, y);
+			if (!info.Glow)
+				continue;
+			LitLamp lamp{};
+			lamp.X = x + info.CenterX;
+			lamp.Y = y + info.CenterY;
+			lamp.Strength = weight * std::min(1.0f, info.Emission / 25.0f);
+			for (int i = 0; i < 3; i++)
+				lamp.Color[i] = info.Color[i];
+			out.push_back(lamp);
+		}
+	}
 }
 
 void ledfx::DrawGlints(float originX, float originY, float scaleX, float scaleY)

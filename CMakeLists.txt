@@ -204,6 +204,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/ledfx.h
         SpaceCadetPinball/modernfx.cpp
         SpaceCadetPinball/modernfx.h
+        SpaceCadetPinball/models3d.cpp
+        SpaceCadetPinball/models3d.h
         SpaceCadetPinball/stb_image.h
         SpaceCadetPinball/updates.cpp
         SpaceCadetPinball/updates.h
