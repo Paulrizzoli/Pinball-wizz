@@ -1,0 +1,982 @@
+{
+  "format": "pinball-wizz-table",
+  "version": 1,
+  "name": "Skatepark",
+  "author": "Pinball Wizz",
+  "playfield": {
+    "width": 16.0,
+    "length": 29.0,
+    "color": "#8a8f95",
+    "color2": "#3c4046",
+    "image": "Skatepark.jpg"
+  },
+  "theme": {
+    "name": "Skatepark",
+    "walls": "#eef1f4",
+    "rubber": "#ffffff",
+    "accent": "#ff5a1f",
+    "accent2": "#2ee6a8",
+    "cabinet": "#23262b",
+    "panel": "#121417",
+    "metal": "#c9ced4",
+    "display": "#ff7a2f"
+  },
+  "ballsPerGame": 3,
+  "parts": [
+    {
+      "type": "wall",
+      "id": "outer wall",
+      "points": [
+        [
+          -7.6,
+          14.5
+        ],
+        [
+          -7.6,
+          -7.0
+        ],
+        [
+          -7.535,
+          -7.992
+        ],
+        [
+          -7.341,
+          -8.967
+        ],
+        [
+          -7.021,
+          -9.908
+        ],
+        [
+          -6.582,
+          -10.8
+        ],
+        [
+          -6.029,
+          -11.627
+        ],
+        [
+          -5.374,
+          -12.374
+        ],
+        [
+          -4.627,
+          -13.029
+        ],
+        [
+          -3.8,
+          -13.582
+        ],
+        [
+          -2.908,
+          -14.021
+        ],
+        [
+          -1.967,
+          -14.341
+        ],
+        [
+          -0.992,
+          -14.535
+        ],
+        [
+          -0.0,
+          -14.6
+        ],
+        [
+          0.992,
+          -14.535
+        ],
+        [
+          1.967,
+          -14.341
+        ],
+        [
+          2.908,
+          -14.021
+        ],
+        [
+          3.8,
+          -13.582
+        ],
+        [
+          4.627,
+          -13.029
+        ],
+        [
+          5.374,
+          -12.374
+        ],
+        [
+          6.029,
+          -11.627
+        ],
+        [
+          6.582,
+          -10.8
+        ],
+        [
+          7.021,
+          -9.908
+        ],
+        [
+          7.341,
+          -8.967
+        ],
+        [
+          7.535,
+          -7.992
+        ],
+        [
+          7.6,
+          -7.0
+        ],
+        [
+          7.6,
+          14.5
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "shooter lane wall",
+      "points": [
+        [
+          6.6,
+          14.5
+        ],
+        [
+          6.6,
+          -6.0
+        ]
+      ]
+    },
+    {
+      "type": "gate",
+      "id": "shooter gate",
+      "points": [
+        [
+          6.6,
+          -6.0
+        ],
+        [
+          7.55,
+          -6.9
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "left inlane guide",
+      "points": [
+        [
+          -7.6,
+          7.5
+        ],
+        [
+          -3.35,
+          11.75
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "right inlane guide",
+      "points": [
+        [
+          6.6,
+          7.5
+        ],
+        [
+          2.35,
+          11.75
+        ]
+      ]
+    },
+    {
+      "type": "wall",
+      "id": "right sling cover",
+      "points": [
+        [
+          5.0,
+          6.6
+        ],
+        [
+          6.6,
+          5.0
+        ]
+      ]
+    },
+    {
+      "type": "slingshot",
+      "id": "left slingshot",
+      "points": [
+        [
+          -6,
+          6.6
+        ],
+        [
+          -6,
+          8.9
+        ],
+        [
+          -4.4,
+          10.3
+        ]
+      ],
+      "color": "#ff5a1f"
+    },
+    {
+      "type": "slingshot",
+      "id": "right slingshot",
+      "points": [
+        [
+          5,
+          6.6
+        ],
+        [
+          3.4,
+          10.3
+        ],
+        [
+          5,
+          8.9
+        ]
+      ],
+      "color": "#ff5a1f"
+    },
+    {
+      "type": "flipper",
+      "side": "left",
+      "x": -3.1,
+      "y": 12.0,
+      "length": 2.2
+    },
+    {
+      "type": "flipper",
+      "side": "right",
+      "x": 2.1,
+      "y": 12.0,
+      "length": 2.2
+    },
+    {
+      "type": "plunger",
+      "x": 7.1,
+      "y": 13.2,
+      "width": 0.7
+    },
+    {
+      "type": "drain",
+      "y": 14.25,
+      "x0": -7.6,
+      "x1": 6.6
+    },
+    {
+      "type": "wall",
+      "id": "halfpipe wall",
+      "points": [
+        [
+          -5.6,
+          3.2
+        ],
+        [
+          -5.6,
+          -5.4
+        ],
+        [
+          -5.9,
+          -6.8
+        ]
+      ],
+      "thickness": 0.3
+    },
+    {
+      "type": "post",
+      "id": "halfpipe post",
+      "x": -5.6,
+      "y": 3.2,
+      "radius": 0.25
+    },
+    {
+      "type": "spinner",
+      "id": "wheel spinner",
+      "x": -6.6,
+      "y": -0.6,
+      "width": 1.6,
+      "angle": 0,
+      "color": "#ffd23f",
+      "score": 150
+    },
+    {
+      "type": "lane",
+      "id": "halfpipe switch",
+      "points": [
+        [
+          -7.5,
+          -4.6
+        ],
+        [
+          -5.75,
+          -4.6
+        ]
+      ],
+      "score": 1000,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "halfpipe light",
+      "x": -6.6,
+      "y": 2.0,
+      "radius": 0.32,
+      "color": "#2ee6a8",
+      "shape": "arrow",
+      "angle": -90,
+      "label": "AIR"
+    },
+    {
+      "type": "wall",
+      "id": "top guide -3",
+      "points": [
+        [
+          -3.0,
+          -13.863
+        ],
+        [
+          -3.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide -1",
+      "points": [
+        [
+          -1.0,
+          -14.414
+        ],
+        [
+          -1.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide 1",
+      "points": [
+        [
+          1.0,
+          -14.414
+        ],
+        [
+          1.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "wall",
+      "id": "top guide 3",
+      "points": [
+        [
+          3.0,
+          -13.863
+        ],
+        [
+          3.0,
+          -11.0
+        ]
+      ],
+      "thickness": 0.22
+    },
+    {
+      "type": "lane",
+      "id": "lane S",
+      "points": [
+        [
+          -2.85,
+          -11.8
+        ],
+        [
+          -1.15,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "lane light S",
+      "x": -2.0,
+      "y": -10.25,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "S",
+      "labelSize": 0.34
+    },
+    {
+      "type": "lane",
+      "id": "lane K",
+      "points": [
+        [
+          -0.85,
+          -11.8
+        ],
+        [
+          0.85,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "lane light K",
+      "x": 0.0,
+      "y": -10.25,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "K",
+      "labelSize": 0.34
+    },
+    {
+      "type": "lane",
+      "id": "lane 8",
+      "points": [
+        [
+          1.15,
+          -11.8
+        ],
+        [
+          2.85,
+          -11.8
+        ]
+      ],
+      "score": 500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "lane light 8",
+      "x": 2.0,
+      "y": -10.25,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "8",
+      "labelSize": 0.34
+    },
+    {
+      "type": "bumper",
+      "id": "cone 1",
+      "x": -1.9,
+      "y": -8.0,
+      "radius": 0.62,
+      "color": "#ff5a1f",
+      "capColor": "#fff3e6",
+      "score": 1000
+    },
+    {
+      "type": "bumper",
+      "id": "cone 2",
+      "x": 1.7,
+      "y": -8.3,
+      "radius": 0.62,
+      "color": "#ff5a1f",
+      "capColor": "#fff3e6",
+      "score": 1000
+    },
+    {
+      "type": "bumper",
+      "id": "cone 3",
+      "x": -0.05,
+      "y": -6.0,
+      "radius": 0.62,
+      "color": "#ff5a1f",
+      "capColor": "#fff3e6",
+      "score": 1000
+    },
+    {
+      "type": "kickout",
+      "id": "bowl hole",
+      "x": -4.3,
+      "y": -9.6,
+      "radius": 0.45,
+      "angle": 55,
+      "strength": 1.0,
+      "color": "#2ee6a8",
+      "score": 2500
+    },
+    {
+      "type": "light",
+      "id": "drop in light",
+      "x": -3.75,
+      "y": -8.2,
+      "radius": 0.3,
+      "color": "#2ee6a8",
+      "shape": "arrow",
+      "angle": -112,
+      "label": "DROP IN"
+    },
+    {
+      "type": "drop",
+      "id": "drop D",
+      "x": -4.397,
+      "y": -0.121,
+      "width": 0.88,
+      "angle": 58,
+      "color": "#ff3d7f",
+      "score": 750,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "deck light D",
+      "x": -3.894,
+      "y": 0.685,
+      "radius": 0.24,
+      "color": "#ff3d7f",
+      "label": "D",
+      "labelSize": 0.28
+    },
+    {
+      "type": "drop",
+      "id": "drop E",
+      "x": -3.566,
+      "y": -0.64,
+      "width": 0.88,
+      "angle": 58,
+      "color": "#ff3d7f",
+      "score": 750,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "deck light E",
+      "x": -3.063,
+      "y": 0.166,
+      "radius": 0.24,
+      "color": "#ff3d7f",
+      "label": "E",
+      "labelSize": 0.28
+    },
+    {
+      "type": "drop",
+      "id": "drop C",
+      "x": -2.734,
+      "y": -1.16,
+      "width": 0.88,
+      "angle": 58,
+      "color": "#ff3d7f",
+      "score": 750,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "deck light C",
+      "x": -2.231,
+      "y": -0.354,
+      "radius": 0.24,
+      "color": "#ff3d7f",
+      "label": "C",
+      "labelSize": 0.28
+    },
+    {
+      "type": "drop",
+      "id": "drop K",
+      "x": -1.903,
+      "y": -1.679,
+      "width": 0.88,
+      "angle": 58,
+      "color": "#ff3d7f",
+      "score": 750,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "deck light K",
+      "x": -1.4,
+      "y": -0.873,
+      "radius": 0.24,
+      "color": "#ff3d7f",
+      "label": "K",
+      "labelSize": 0.28
+    },
+    {
+      "type": "wall",
+      "id": "rail left",
+      "points": [
+        [
+          -0.55,
+          -1.5
+        ],
+        [
+          -0.55,
+          -4.4
+        ]
+      ],
+      "thickness": 0.2,
+      "color": "#d9dde2"
+    },
+    {
+      "type": "wall",
+      "id": "rail right",
+      "points": [
+        [
+          0.75,
+          -1.5
+        ],
+        [
+          0.75,
+          -4.4
+        ]
+      ],
+      "thickness": 0.2,
+      "color": "#d9dde2"
+    },
+    {
+      "type": "post",
+      "id": "rail post left",
+      "x": -0.55,
+      "y": -1.5,
+      "radius": 0.2
+    },
+    {
+      "type": "post",
+      "id": "rail post right",
+      "x": 0.75,
+      "y": -1.5,
+      "radius": 0.2
+    },
+    {
+      "type": "lane",
+      "id": "rail switch",
+      "points": [
+        [
+          -0.43000000000000005,
+          -3.2
+        ],
+        [
+          0.63,
+          -3.2
+        ]
+      ],
+      "score": 2000,
+      "bonus": 1500
+    },
+    {
+      "type": "light",
+      "id": "rail light",
+      "x": 0.09999999999999998,
+      "y": -0.35,
+      "radius": 0.32,
+      "color": "#ff3b30",
+      "shape": "arrow",
+      "angle": -90,
+      "label": "GRIND"
+    },
+    {
+      "type": "target",
+      "id": "kick target",
+      "x": 6.05,
+      "y": 2.3,
+      "width": 0.85,
+      "angle": 180,
+      "color": "#3db8ff",
+      "score": 1500,
+      "bonus": 1000
+    },
+    {
+      "type": "target",
+      "id": "flip target",
+      "x": 6.05,
+      "y": 3.45,
+      "width": 0.85,
+      "angle": 180,
+      "color": "#3db8ff",
+      "score": 1500,
+      "bonus": 1000
+    },
+    {
+      "type": "light",
+      "id": "kick light",
+      "x": 5.2,
+      "y": 2.3,
+      "radius": 0.22,
+      "color": "#3db8ff",
+      "shape": "arrow",
+      "angle": 0,
+      "label": "KICK",
+      "labelSize": 0.22
+    },
+    {
+      "type": "light",
+      "id": "flip light",
+      "x": 5.2,
+      "y": 3.45,
+      "radius": 0.22,
+      "color": "#3db8ff",
+      "shape": "arrow",
+      "angle": 0,
+      "label": "FLIP",
+      "labelSize": 0.22
+    },
+    {
+      "type": "ramp",
+      "id": "mega ramp",
+      "points": [
+        [
+          3.2,
+          1.0
+        ],
+        [
+          3.9,
+          -2.4
+        ],
+        [
+          4.75,
+          -5.8
+        ],
+        [
+          5.0,
+          -8.1
+        ],
+        [
+          4.35,
+          -9.7
+        ]
+      ],
+      "width": 1.3,
+      "color": "#ff5a1f",
+      "railColor": "#e8ecef",
+      "score": 5000,
+      "bonus": 2000
+    },
+    {
+      "type": "light",
+      "id": "ramp light 1",
+      "x": 3.05,
+      "y": 2.9,
+      "radius": 0.24,
+      "color": "#ff5a1f",
+      "shape": "arrow",
+      "angle": -80
+    },
+    {
+      "type": "light",
+      "id": "ramp light 2",
+      "x": 3.17,
+      "y": 2.28,
+      "radius": 0.24,
+      "color": "#ff5a1f",
+      "shape": "arrow",
+      "angle": -80
+    },
+    {
+      "type": "light",
+      "id": "ramp light 3",
+      "x": 3.29,
+      "y": 1.66,
+      "radius": 0.24,
+      "color": "#ff5a1f",
+      "shape": "arrow",
+      "angle": -80
+    },
+    {
+      "type": "light",
+      "id": "ramp light 4",
+      "x": 3.41,
+      "y": 1.04,
+      "radius": 0.24,
+      "color": "#ff5a1f",
+      "shape": "arrow",
+      "angle": -80
+    },
+    {
+      "type": "light",
+      "id": "mult 2X",
+      "x": -2.0,
+      "y": 8.2,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "2X"
+    },
+    {
+      "type": "light",
+      "id": "mult 3X",
+      "x": -1.0,
+      "y": 8.2,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "3X"
+    },
+    {
+      "type": "light",
+      "id": "mult 5X",
+      "x": 0.0,
+      "y": 8.2,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "5X"
+    },
+    {
+      "type": "light",
+      "id": "mult 10X",
+      "x": 1.0,
+      "y": 8.2,
+      "radius": 0.3,
+      "color": "#ffd23f",
+      "label": "10X"
+    },
+    {
+      "type": "light",
+      "id": "shoot again",
+      "x": -0.5,
+      "y": 10.3,
+      "radius": 0.36,
+      "color": "#ff3b30",
+      "label": "SHOOT AGAIN",
+      "labelSize": 0.26
+    }
+  ],
+  "rules": {
+    "ballSave": 8,
+    "extraBallLight": "shoot again",
+    "multiplierLights": [
+      "mult 2X",
+      "mult 3X",
+      "mult 5X",
+      "mult 10X"
+    ],
+    "groups": [
+      {
+        "name": "S-K-8 LANES",
+        "parts": [
+          "lane S",
+          "lane K",
+          "lane 8"
+        ],
+        "lights": [
+          "lane light S",
+          "lane light K",
+          "lane light 8"
+        ],
+        "score": 3000,
+        "bonus": 3000,
+        "award": "multiplier"
+      },
+      {
+        "name": "DECK",
+        "parts": [
+          "drop D",
+          "drop E",
+          "drop C",
+          "drop K"
+        ],
+        "lights": [
+          "deck light D",
+          "deck light E",
+          "deck light C",
+          "deck light K"
+        ],
+        "score": 10000,
+        "bonus": 5000,
+        "award": "startMission",
+        "startsMission": "DROP IN"
+      },
+      {
+        "name": "DROP IN",
+        "mission": true,
+        "time": 30,
+        "hint": "SHOOT THE BOWL",
+        "parts": [
+          "bowl hole"
+        ],
+        "lights": [
+          "drop in light"
+        ],
+        "score": 50000,
+        "bonus": 10000,
+        "award": "extraBall",
+        "message": "DROPPED IN"
+      },
+      {
+        "name": "KICKFLIP",
+        "parts": [
+          "kick target",
+          "flip target"
+        ],
+        "lights": [
+          "kick light",
+          "flip light"
+        ],
+        "score": 5000,
+        "bonus": 3000,
+        "award": "startMission",
+        "startsMission": "GRIND"
+      },
+      {
+        "name": "GRIND",
+        "mission": true,
+        "time": 25,
+        "hint": "SHOOT THE RAIL",
+        "parts": [
+          "rail switch"
+        ],
+        "lights": [
+          "rail light"
+        ],
+        "score": 40000,
+        "bonus": 8000,
+        "message": "SICK GRIND"
+      },
+      {
+        "name": "MEGA RAMP",
+        "parts": [
+          "mega ramp"
+        ],
+        "hits": 4,
+        "lights": [
+          "ramp light 1",
+          "ramp light 2",
+          "ramp light 3",
+          "ramp light 4"
+        ],
+        "score": 25000,
+        "award": "multiball",
+        "message": "SESSION MULTIBALL"
+      },
+      {
+        "name": "HALFPIPE",
+        "parts": [
+          "halfpipe switch"
+        ],
+        "hits": 3,
+        "lights": [
+          "halfpipe light"
+        ],
+        "score": 15000,
+        "bonus": 5000,
+        "message": "BIG AIR"
+      },
+      {
+        "name": "CONES",
+        "parts": [
+          "cone 1",
+          "cone 2",
+          "cone 3"
+        ],
+        "hits": 25,
+        "lights": [],
+        "score": 20000,
+        "message": "CONE ZONE"
+      }
+    ]
+  }
+}
